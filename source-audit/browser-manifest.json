@@ -1,0 +1,10 @@
+{
+  "origin": "https://github.com/nmlgc/efont/tree/69883aef69f4762a9b3afceb257044c71377499d/wadalab-fontkit",
+  "revision": "69883aef69f4762a9b3afceb257044c71377499d",
+  "glyphs": 6703,
+  "generatedFiles": {
+    "source-program.json": "5fda8e4412c9c1ac811733c4da85533565bc3b8adf3d73c5b763e99bbd12af9c",
+    "source-glyphs.json": "4c0a9336f8775a3b539a2f586e52a2d2d5e60e1e02bba72ae3f276bb5fd12f1e"
+  },
+  "build": "ABCL macro expansion and original applykanji / normkanji. Runtime skeleton2list executes in JavaScript. Not animation frame data."
+}

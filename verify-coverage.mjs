@@ -1,0 +1,5 @@
+import fs from 'node:fs';import {SourceEngine} from './web/source-engine.js';
+const data=JSON.parse(fs.readFileSync(new URL('./web/source-glyphs.json',import.meta.url)));const engine=new SourceEngine(JSON.parse(fs.readFileSync(new URL('./web/source-program.json',import.meta.url))),data);
+const chars=process.argv.includes('--all')?data.map(row=>row[0]):[...new Set([...('あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをんアイウエオ、。！？（）日本語和田研細丸永木林森田一上下左右東京大阪京都音楽文字骨格接続'),...data.filter((_,i)=>i%35===0).map(r=>r[0])])];let passed=0;const failures=[];
+for(const ch of chars){try{const g=engine.make(ch);engine.outline(g,.6);passed++;if(passed%500===0){console.log(`checked ${passed}`);engine.cache.clear();}}catch(e){failures.push([ch,e.message]);}}
+fs.writeFileSync(new URL('./source-audit/browser-coverage.json',import.meta.url),JSON.stringify({exported:data.length,tested:chars.length,passed,failures},null,2));console.log(JSON.stringify({tested:chars.length,passed,failures}));if(failures.length)process.exitCode=1;

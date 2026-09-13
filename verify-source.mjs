@@ -1,0 +1,7 @@
+import assert from 'node:assert/strict';
+import fs from 'node:fs';import {SourceVM,fromAST,array,sym,list} from './web/source-vm.js';
+const vm=new SourceVM();vm.load(JSON.parse(fs.readFileSync(new URL('./web/source-program.json',import.meta.url),'utf8')));
+const {installVectorMath}=await import('./web/source-fast.js');installVectorMath(vm);
+const raw=JSON.parse(fs.readFileSync(new URL('./source-audit/source-glyphs.raw.json',import.meta.url),'utf8'));
+function read(text){const tokens=text.match(/\(|\)|[^\s()]+/g)??[];let i=0;function p(){const t=tokens[i++];if(t==='('){const a=[];while(tokens[i]!==')')a.push(p());i++;return list(...a);}if(t==='NIL')return null;return Number.isFinite(Number(t))?Number(t):sym(t);}return p();}
+for(const g of raw){const n=g[3],sk=list(list(...n[0].map(p=>list(p[0],p[1],...array(read(p[2]))))),list(...n[1].map(s=>list(sym(s[0]),list(...s[1]),...array(read(s[2]))))));try{const start=performance.now(),out=vm.call('skeleton2list',[sk,sym('maru')]);const numeric=x=>x&&x.a!==undefined?array(x).map(numeric):x?.s??x;const actual=numeric(out);let max=0,bad=0;function compare(a,b){if(Array.isArray(a)&&Array.isArray(b)){if(a.length!==b.length)bad++;for(let i=0;i<Math.min(a.length,b.length);i++)compare(a[i],b[i]);}else if(typeof a==='number'&&typeof b==='number')max=Math.max(max,Math.abs(a-b));else if(a!==b)bad++;}compare(actual,g[4]);assert.equal(bad,0);assert.ok(max<.001,`${g[0]} coordinate deviation ${max}`);console.log(g[0],'PASS', {max});}catch(e){console.error(g[0],e);process.exitCode=1;break;}}

@@ -1,0 +1,20 @@
+import http from 'node:http';
+import {readFile} from 'node:fs/promises';
+import {spawn} from 'node:child_process';
+import {fileURLToPath} from 'node:url';
+process.chdir(fileURLToPath(new URL('.',import.meta.url)));
+const port=4184;
+const files={'/source-vm.js':'web/source-vm.js','/source-fast.js':'web/source-fast.js','/source-engine.js':'web/source-engine.js','/native-renderer.js':'web/native-renderer.js','/source-program.json':'web/source-program.json','/source-glyphs.json':'web/source-glyphs.json','/SOURCE-LICENSE.txt':'web/SOURCE-LICENSE.txt','/structure.js':'web/structure.js','/single':'web/single.html','/single-app.js':'web/single-app.js','/single-style.css':'web/single-style.css','/qa':'../../work/fold-qa.html','/':'web/index.html','/app.js':'web/app.js','/style.css':'web/style.css','/font-support.js':'web/font-support.js','/fold-core.js':'web/fold-core.js','/renderer.js':'web/renderer.js','/motion-config.js':'web/motion-config.js','/export-rig.js':'web/export-rig.js','/font/wlmaru2004emoji.ttf':'web/font/wlmaru2004emoji.ttf','/font/metadata.json':'web/font/metadata.json','/LICENSE.txt':'web/SOURCE-LICENSE.txt'};
+const server=http.createServer(async(req,res)=>{
+ res.setHeader('Cache-Control','no-store');res.setHeader('X-Content-Type-Options','nosniff');
+ if(![`127.0.0.1:${port}`,`localhost:${port}`].includes(req.headers.host)){res.writeHead(403);res.end();return;}
+ const path=new URL(req.url,'http://127.0.0.1').pathname,file=files[path];
+ if(req.method!=='GET'||!file){res.writeHead(404);res.end();return;}
+ try{const b=await readFile(file),ext=file.split('.').pop();res.writeHead(200,{'Content-Type':({'js':'text/javascript','css':'text/css','html':'text/html','json':'application/json','ttf':'font/ttf','txt':'text/plain'}[ext]??'application/octet-stream')+'; charset=utf-8'});res.end(b);}catch{res.writeHead(500);res.end('File unavailable');}
+});
+server.listen(port,'127.0.0.1',()=>{console.log(`http://127.0.0.1:${port}`);if(process.argv.includes('--open'))spawn('cmd.exe',['/c','start','',`http://127.0.0.1:${port}`],{windowsHide:true,stdio:'ignore'}).on('error',console.error);});
+for(const s of ['SIGINT','SIGTERM'])process.on(s,()=>server.close(()=>process.exit(0)));
+
+
+
+
