@@ -23,12 +23,22 @@ async function update(){
   renderer.canvas.dataset.glyphs=String(renderer.placed.length);
   const stage=$('stage');
   if(stage.scrollHeight-stage.scrollTop-stage.clientHeight<renderer.options.fontSize*2)stage.scrollTop=stage.scrollHeight;
+  updateCaret();
  }catch(error){if(mine===token)$('error').textContent=error.message;}
+}
+
+function updateCaret(){
+ if(!renderer?.caret)return;
+ const caret=$('caret'),stage=$('stage');
+ caret.style.transform=`translate(${renderer.caret.x}px,${renderer.caret.y-stage.scrollTop}px)`;
+ caret.style.height=`${renderer.caret.height}px`;
 }
 
 $('input').addEventListener('compositionstart',()=>{composing=true;++token;});
 $('input').addEventListener('compositionend',()=>{composing=false;update();});
 $('input').addEventListener('input',()=>{if(!composing)update();});
+$('input').addEventListener('focus',()=>document.body.classList.add('typing'));
+$('input').addEventListener('blur',()=>document.body.classList.remove('typing'));
 
 function focusInput(){if(!$('license').open)$('input').focus({preventScroll:true});}
 document.addEventListener('pointerdown',event=>{if(event.target.closest('button,dialog'))return;event.preventDefault();focusInput();},{passive:false});
@@ -38,11 +48,18 @@ $('info').onclick=async()=>{
  try{const response=await fetch('/LICENSE.txt');if(!response.ok)throw Error();$('license-text').textContent=await response.text();}
  catch{$('license-text').textContent='ライセンスを読み込めませんでした。';}
 };
+$('paste').onclick=async()=>{
+ const button=$('paste');button.disabled=true;
+ try{const text=await navigator.clipboard.readText();$('input').value=text;$('input').setSelectionRange(text.length,text.length);await update();}
+ catch{$('error').textContent='クリップボードを読み取れませんでした。ブラウザの許可を確認してください。';}
+ finally{button.disabled=false;focusInput();}
+};
 $('close').onclick=()=>$('license').close();
 $('license').addEventListener('click',event=>{if(event.target!==$('license'))return;const rect=event.target.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)event.target.close();});
 $('license').addEventListener('close',focusInput);
 
-addEventListener('resize',()=>{if(!renderer)return;renderer.options.fontSize=fontSize();renderer.layout();});
+addEventListener('resize',()=>{if(!renderer)return;renderer.options.fontSize=fontSize();renderer.layout();updateCaret();});
+$('stage').addEventListener('scroll',updateCaret,{passive:true});
 
 function frame(now){
  if(lastFrame&&!document.hidden&&!$('license').open)clock+=Math.min(.1,(now-lastFrame)/1000)*.75;

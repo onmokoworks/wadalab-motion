@@ -76,7 +76,7 @@ gl_FragColor=vec4(vec3(0.0666667),m.a*reveal);}`));gl.linkProgram(program);if(!g
    this.canvas.style.height=`${this.height}px`;
    if(this.spacer)this.spacer.style.height=`${Math.max(0,this.contentHeight-this.height)}px`;
   }
-  rows.forEach((row,r)=>{let x=pad;for(const item of row){if(item.glyph)this.placed.push({glyph:item.glyph,born:item.born,sourceIndex:item.sourceIndex,x:x+item.glyph.centerX*size,y:top+r*size*1.35+size*.96+item.glyph.centerY*size,size});x+=item.advance;}});
+  rows.forEach((row,r)=>{let x=pad;for(const item of row){if(item.glyph)this.placed.push({glyph:item.glyph,born:item.born,sourceIndex:item.sourceIndex,x:x+item.glyph.centerX*size,y:top+r*size*1.35+size*.96+item.glyph.centerY*size,size});x+=item.advance;}if(r===rows.length-1)this.caret={x,y:top+r*size*1.35+size*.08,height:size*.9};});
  }
  draw(time,{staticAmount=null}={}){
   const pending=this.placed?.some(item=>time<item.born+this.duration);
