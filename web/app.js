@@ -1,33 +1,61 @@
-import {NativeRenderer as FoldRenderer} from './native-renderer.js';
+import {NativeRenderer} from './native-renderer.js';
 import {loadSourceEngine} from './source-engine.js';
-import {missingCharacters} from './font-support.js';
+
 const $=id=>document.getElementById(id);
-const variants=[11,11,11,11,11,11,11];
-const patterns=[['06 横軸と関節',''],['06 円弧トリム＋関節',''],['06 弧を直線から展開',''],['交点から分岐',''],['接線の受け渡し',''],['閉曲線を最後に閉じる',''],['閉曲線を丁寧に受け渡す','']];
-let metadata,clock=0,last=0,globalToken=0;const cards=[];
-function bindInput(input,callback,onCompositionStart=()=>{}){let timer,composing=false;const schedule=()=>{clearTimeout(timer);timer=setTimeout(callback,0)};input.addEventListener('compositionstart',()=>{composing=true;clearTimeout(timer);onCompositionStart()});input.addEventListener('compositionend',()=>{composing=false;schedule()});input.addEventListener('input',()=>{if(!composing)schedule()});}
-async function update(card,text,replay=false){const token=++card.token;const missing=[...new Set(Array.from(text).filter(c=>c.trim()&&!metadata.resolve(c)))];card.error.textContent=missing.length?`未収録：${missing.join('・')}`:'';const safe=Array.from(text).map(c=>missing.includes(c)?' ':c).join('');try{await card.renderer.setText(safe,()=>token===card.token,()=>clock);}catch(e){card.error.textContent=e.message;return;}if(token!==card.token)return;if(replay)card.renderer.replay(clock);card.canvas.dataset.glyphs=String(card.renderer.placed.length);const glyphs=[...card.renderer.cache.values()].filter(g=>card.renderer.items.some(i=>i.glyph===g)),graphs=glyphs.map(g=>g.strategy.graph);card.stats.textContent=`原典 ${glyphs.reduce((n,g)=>n+g.strokes.length,0)}画 / 共有点 ${graphs.reduce((n,g)=>n+g.nodes.filter(v=>v.edges.length>=2).length,0)}`;const notices=[...new Set(glyphs.filter(g=>g.strategy.notice).map(g=>g.text+"："+g.strategy.notice))];if(!missing.length)card.error.textContent=notices.join('・');}
-function replayAll(){for(const card of cards)card.renderer.replay(clock);}
-async function updateAll(replay=false){if(!metadata)return;const token=++globalToken,text=$('common').value;for(const card of cards)card.input.value=text;await Promise.all(cards.map(card=>update(card,text)));if(replay&&token===globalToken)replayAll();}
-function frame(now){if(last&&!document.hidden&&!$('license').open)clock+=Math.min(.1,(now-last)/1000)*Number($('speed').value);last=now;if(!document.hidden&&!$('license').open){const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches,expanded=document.querySelector('.pattern.expanded');for(const card of cards){if(expanded&&card.canvas.closest('.pattern')!==expanded)continue;const bounds=card.canvas.parentElement.getBoundingClientRect();if(bounds.bottom<0||bounds.top>innerHeight)continue;card.renderer.draw(clock,{staticAmount:$('manual').checked?Number($('fold').value):reduced?0:null});drawGuides(card);if(card.canvas.dataset.renderError)card.error.textContent=card.canvas.dataset.renderError;}}requestAnimationFrame(frame);}
-$('replay-all').disabled=true;$('replay-all').onclick=()=>{$('manual').checked=false;replayAll()};$('speed').onchange=replayAll;
-bindInput($('common'),updateAll,()=>{++globalToken;for(const card of cards)++card.token;});
-$('paste-all').onclick=async()=>{const button=$('paste-all');button.disabled=true;try{const text=await navigator.clipboard.readText();$('common').value=text;await updateAll();$('status').textContent='';}catch{$('status').textContent='クリップボードを読み取れませんでした。ブラウザの許可を確認してください。';}finally{button.disabled=false;}};
-$('info').onclick=async()=>{$('license').showModal();try{const r=await fetch('/LICENSE.txt');if(!r.ok)throw Error();$('license-text').textContent=await r.text();}catch{$('license-text').textContent='ライセンスを読み込めませんでした。'}};$('close').onclick=()=>$('license').close();$('license').addEventListener('click',e=>{if(e.target!==$('license'))return;const r=e.target.getBoundingClientRect();if(e.clientX<r.left||e.clientX>r.right||e.clientY<r.top||e.clientY>r.bottom)e.target.close();});
-addEventListener('resize',()=>cards.forEach(card=>card.renderer.layout()));
-async function initialize(){try{metadata=await loadSourceEngine();for(let i=0;i<patterns.length;i++){const [name,description]=patterns[i],section=document.createElement('section');section.className='pattern';section.innerHTML=`<div class="pattern-head"><h2><span class="number">${["C","C＋","C＋2","C＋3","C＋4","C＋5","C＋5′"][i]}</span>${name}</h2><button aria-label="${name}を再生">再生</button></div><p class="description">${description}</p><div class="stage"><canvas role="img" aria-label="${name}のプレビュー"></canvas></div><input class="trial" aria-label="${name}に試打" autocomplete="off" spellcheck="false"><p class="stats"></p><p class="error" role="status"></p>`;$('patterns').append(section);const canvas=section.querySelector('canvas'),input=section.querySelector('input'),renderer=new FoldRenderer(canvas,{compact:true,fontSize:Number($('letter-size').value),variant:variants[i],structural:true,roundTrim:i===1||i===2,curveUnfold:i===2,motionMode:i===3?'junction':i===4?'tangent':i===5?'close':i===6?'carefulClose':null,relay:i===4||i===6});const card={canvas,input,renderer,error:section.querySelector('.error'),stats:section.querySelector('.stats'),token:0};const overlay=document.createElement('canvas');overlay.className='guides';section.querySelector('.stage').append(overlay);card.overlay=overlay;cards.push(card);
- const expand=document.createElement('button');expand.textContent='拡大';expand.setAttribute('aria-label',`${name}を拡大`);section.querySelector('.pattern-head').append(expand);
- const sizeControl=document.createElement('label');sizeControl.className='expanded-size';sizeControl.textContent='文字サイズ ';const sizeInput=document.createElement('input');sizeInput.type='range';sizeInput.min='48';sizeInput.max='240';sizeInput.step='4';sizeInput.value='128';sizeInput.setAttribute('aria-label',`${name}の文字サイズ`);sizeControl.append(sizeInput);section.querySelector('.pattern-head').append(sizeControl);sizeInput.oninput=()=>{renderer.options.fontSize=Number(sizeInput.value);renderer.layout();};
- expand.onclick=()=>{const opening=!section.classList.contains('expanded');document.querySelectorAll('.pattern.expanded').forEach(s=>s.classList.remove('expanded'));document.querySelectorAll('.expand-active').forEach(b=>{b.textContent='拡大';b.classList.remove('expand-active')});if(opening){section.classList.add('expanded');expand.textContent='戻る';expand.classList.add('expand-active');}renderer.options.fontSize=opening?Number(sizeInput.value):Number($('letter-size').value);renderer.layout();renderer.replay(clock);};
- input.value=$('common').value;bindInput(input,()=>update(card,input.value),()=>++card.token);section.querySelector('button').onclick=()=>{$('manual').checked=false;renderer.replay(clock)};}
- await updateAll(true);$('status').textContent='';$('replay-all').disabled=false;requestAnimationFrame(frame);
- }catch(e){$('status').textContent=e.message;}}
+const segmenter=new Intl.Segmenter('ja',{granularity:'grapheme'});
+const segments=text=>[...segmenter.segment(text)].map(entry=>entry.segment);
+let engine,renderer,token=0,composing=false,clock=0,lastFrame=0;
+
+function fontSize(){return innerWidth<600?72:112;}
+
+async function update(){
+ const mine=++token;
+ if(!renderer)return;
+ const text=$('input').value,characters=segments(text),missing=[...new Set(characters.filter(character=>character.trim()&&!engine.resolve(character)))];
+ $('error').textContent=missing.length?`未収録：${missing.join('・')}`:'';
+ const safe=characters.map(character=>missing.includes(character)?' ':character).join('');
+ try{
+  await renderer.setText(safe,()=>mine===token,()=>clock);
+  if(mine!==token)return;
+  renderer.canvas.dataset.glyphs=String(renderer.placed.length);
+  const stage=$('stage');
+  if(stage.scrollHeight-stage.scrollTop-stage.clientHeight<renderer.options.fontSize*2)stage.scrollTop=stage.scrollHeight;
+ }catch(error){if(mine===token)$('error').textContent=error.message;}
+}
+
+$('input').addEventListener('compositionstart',()=>{composing=true;++token;});
+$('input').addEventListener('compositionend',()=>{composing=false;update();});
+$('input').addEventListener('input',()=>{if(!composing)update();});
+
+function focusInput(){if(!$('license').open)$('input').focus({preventScroll:true});}
+document.addEventListener('pointerdown',event=>{if(!event.target.closest('button,dialog'))focusInput();});
+
+$('info').onclick=async()=>{
+ $('license').showModal();
+ try{const response=await fetch('/LICENSE.txt');if(!response.ok)throw Error();$('license-text').textContent=await response.text();}
+ catch{$('license-text').textContent='ライセンスを読み込めませんでした。';}
+};
+$('close').onclick=()=>$('license').close();
+$('license').addEventListener('click',event=>{if(event.target!==$('license'))return;const rect=event.target.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)event.target.close();});
+$('license').addEventListener('close',focusInput);
+
+addEventListener('resize',()=>{if(!renderer)return;renderer.options.fontSize=fontSize();renderer.layout();});
+
+function frame(now){
+ if(lastFrame&&!document.hidden&&!$('license').open)clock+=Math.min(.1,(now-lastFrame)/1000)*.75;
+ lastFrame=now;
+ if(renderer&&!document.hidden&&!$('license').open)renderer.draw(clock);
+ requestAnimationFrame(frame);
+}
+
+async function initialize(){
+ try{
+  engine=await loadSourceEngine();
+  renderer=new NativeRenderer($('canvas'),{compact:true,fontSize:fontSize(),top:58,variant:11,structural:true,motionMode:'close'});
+  await update();
+  focusInput();
+ }catch(error){$('error').textContent=error.message;}
+ requestAnimationFrame(frame);
+}
+
 initialize();
-
-function drawGuides(card){const canvas=card.overlay,r=card.renderer;if(!$('guides').checked){canvas.hidden=true;return;}canvas.hidden=false;if(canvas.width!==r.canvas.width||canvas.height!==r.canvas.height){canvas.width=r.canvas.width;canvas.height=r.canvas.height;}canvas.style.height=`${r.height}px`;canvas.style.top=`${r.canvas.parentElement.scrollTop}px`;const ctx=canvas.getContext('2d');ctx.clearRect(0,0,canvas.width,canvas.height);if(!$('guides').checked)return;ctx.save();ctx.scale(canvas.width/r.width,canvas.height/r.height);for(const item of r.placed??[]){const scale=item.size/item.glyph.pixelFontSize;for(const p of item.glyph.strategy.anchors){ctx.beginPath();ctx.arc(item.x+(p.x/.64-200)*scale,item.y-r.canvas.parentElement.scrollTop+(p.y/.64-200)*scale,2.5,0,Math.PI*2);ctx.fillStyle='#357fbd';ctx.fill();}}ctx.restore();}
-$('fold').oninput=()=>{$('manual').checked=true;};
-
-
-
-$('letter-size').oninput=()=>{$('letter-size-value').textContent=$('letter-size').value;for(const card of cards){card.renderer.options.fontSize=Number($('letter-size').value);card.renderer.layout();}};
-addEventListener('keydown',e=>{if(e.key==='Escape'){document.querySelector('.expand-active')?.click();}});
