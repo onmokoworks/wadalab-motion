@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {FoldRenderer} from './web/renderer.js';
+import {NativeRenderer} from './web/native-renderer.js';
 import {relaySchedule} from './web/structure.js';
 
 function renderer(items=[]){return {items,duration:.35,stagger:.07,make:segment=>({text:segment}),layout(){this.layouts=(this.layouts??0)+1;},prune(){}};}
@@ -17,13 +18,21 @@ test('a large paste keeps a stable overlapping interval without batch restarts',
  assert.equal(r.items.length,Array.from(text).length);for(let i=1;i<r.items.length;i++)assert.ok(r.items[i].born-r.items[i-1].born>=r.stagger-.000001);
 });
 
-test('the live site does not carry a long paste delay into later screens',async()=>{
+test('a long paste remains deferred until its characters enter the viewport',async()=>{
  const r=renderer();r.options={maxStaggerDelay:.7};
  const text='文字禍'.repeat(200);
- await FoldRenderer.prototype.setText.call(r,text,()=>true,20);
+ await FoldRenderer.prototype.setText.call(r,text,()=>true,20,{deferNew:true});
  assert.equal(r.items.length,600);
- assert.ok(r.items.every(item=>item.born<=20.7+.000001));
- assert.equal(r.items.at(-1).born,20.7);
+ assert.ok(r.items.every(item=>item.deferred));
+});
+
+test('only deferred characters inside the viewport are activated',()=>{
+ const items=Array.from({length:6},(_,index)=>({born:0,deferred:true}));
+ const r={items,stagger:.07,options:{maxStaggerDelay:.7},placed:items.map((item,index)=>({...item,sourceIndex:index,y:index*100+40,size:50}))};
+ const activated=NativeRenderer.prototype.activateVisible.call(r,10,0,250);
+ assert.equal(activated,true);
+ assert.deepEqual(r.items.map(item=>item.deferred),[false,false,false,true,true,true]);
+ assert.deepEqual(r.items.slice(0,3).map(item=>item.born),[10,10.07,10.14]);
 });
 
 test('slow generation cannot leave queued entry times in the past',async()=>{

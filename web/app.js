@@ -20,7 +20,7 @@ async function update({bulkHint=false}={}){
  $('error').textContent=missing.length?`未収録：${missing.join('・')}`:'';
  const safe=characters.map(character=>missing.includes(character)?' ':character).join('');
  try{
-  await renderer.setText(safe,()=>mine===token,()=>clock);
+  await renderer.setText(safe,()=>mine===token,()=>clock,{deferNew:bulk});
   if(mine!==token)return;
   renderer.canvas.dataset.glyphs=String(renderer.placed.length);
   if(bulk){stage.scrollTop=Math.min(savedScrollTop,Math.max(0,stage.scrollHeight-stage.clientHeight));updateCaret();}
