@@ -5,14 +5,15 @@ import {deletionDelays,removedIndices} from './deletion-schedule.js';
 const $=id=>document.getElementById(id);
 const segmenter=new Intl.Segmenter('ja',{granularity:'grapheme'});
 const segments=text=>[...segmenter.segment(text)].map(entry=>entry.segment);
-let engine,renderer,token=0,composing=false,clock=0,lastFrame=0,inputFocused=false,viewportFrame=0;
+let engine,renderer,token=0,composing=false,clock=0,lastFrame=0,inputFocused=false,viewportFrame=0,bulkPlayback=false,updating=false;
 
 function fontSize(){return innerWidth<600?72:112;}
 
 async function update({bulkHint=false}={}){
  const mine=++token;
+ updating=true;
  document.body.classList.remove('waiting');
- if(!renderer)return;
+ if(!renderer){updating=false;return;}
  const text=$('input').value,characters=segments(text),missing=[...new Set(characters.filter(character=>character.trim()&&!engine.resolve(character)))];
  const previous=renderer.items.map(item=>item.segment),removed=removedIndices(previous,characters);
  const stage=$('stage'),savedScrollTop=stage.scrollTop,bulk=bulkHint||Math.abs(characters.length-previous.length)>12||removed.length>12;
@@ -20,12 +21,14 @@ async function update({bulkHint=false}={}){
  $('error').textContent=missing.length?`未収録：${missing.join('・')}`:'';
  const safe=characters.map(character=>missing.includes(character)?' ':character).join('');
  try{
-  await renderer.setText(safe,()=>mine===token,()=>clock,{deferNew:bulk});
+  if(bulk)bulkPlayback=true;
+  await renderer.setText(safe,()=>mine===token,()=>clock);
   if(mine!==token)return;
   renderer.canvas.dataset.glyphs=String(renderer.placed.length);
   if(bulk){stage.scrollTop=Math.min(savedScrollTop,Math.max(0,stage.scrollHeight-stage.clientHeight));updateCaret();}
   else keepActivityVisible();
  }catch(error){if(mine===token)$('error').textContent=error.message;}
+ finally{if(mine===token)updating=false;}
 }
 
 function updateCaret(){
@@ -39,6 +42,14 @@ function keepActivityVisible(){
  if(!renderer?.caret)return;
  const stage=$('stage'),departureBottom=Math.max(0,...renderer.departures.map(item=>item.y+item.size*.72)),bottom=Math.max(renderer.caret.y+renderer.caret.height,departureBottom),top=Math.min(renderer.caret.y,...renderer.departures.map(item=>item.y-item.size*.72)),margin=12;
  if(bottom-stage.scrollTop>stage.clientHeight-margin)stage.scrollTop=Math.max(0,bottom-stage.clientHeight+margin);
+ else if(top<stage.scrollTop+margin)stage.scrollTop=Math.max(0,top-margin);
+ updateCaret();
+}
+
+function keepPlaybackVisible(){
+ const item=renderer?.animationFrontier(clock);if(!item)return;
+ const stage=$('stage'),margin=Math.min(stage.clientHeight*.24,120),top=item.y-item.size*.78,bottom=item.y+item.size*.35;
+ if(bottom>stage.scrollTop+stage.clientHeight-margin)stage.scrollTop=Math.max(0,bottom-stage.clientHeight+margin);
  else if(top<stage.scrollTop+margin)stage.scrollTop=Math.max(0,top-margin);
  updateCaret();
 }
@@ -82,6 +93,7 @@ function frame(now){
  if(lastFrame&&!document.hidden&&!$('license').open)clock+=Math.min(.1,(now-lastFrame)/1000)*.75;
  lastFrame=now;
  if(renderer&&!document.hidden&&!$('license').open)renderer.draw(clock);
+ if(renderer&&bulkPlayback&&!document.hidden&&!$('license').open){keepPlaybackVisible();if(!updating&&!renderer.isAnimating(clock))bulkPlayback=false;}
  document.body.classList.toggle('waiting',Boolean(renderer&&inputFocused&&!composing&&!renderer.isAnimating(clock)&&!$('license').open));
  requestAnimationFrame(frame);
 }
@@ -90,7 +102,7 @@ async function initialize(){
  try{
   syncViewport();
   engine=await loadSourceEngine();
-  renderer=new NativeRenderer($('canvas'),{compact:true,fontSize:fontSize(),pad:4,top:58,variant:11,structural:true,motionMode:'close',maxStaggerDelay:.7});
+  renderer=new NativeRenderer($('canvas'),{compact:true,fontSize:fontSize(),pad:4,top:58,variant:11,structural:true,motionMode:'close'});
   await update();
   focusInput();
  }catch(error){$('error').textContent=error.message;}

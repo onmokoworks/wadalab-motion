@@ -17,18 +17,15 @@ export class NativeRenderer extends LineRenderer{
   if(this.departures.length){this.departureFloor=Math.max(this.departureFloor,this.contentHeight??this.height??0);if(this.spacer)this.spacer.style.height=`${Math.max(0,this.departureFloor-this.height)}px`;this.dirty=true;}
  }
 
- isAnimating(time){return this.departures.length>0||(this.placed??[]).some(item=>!item.deferred&&time<item.born+this.duration);}
+ isAnimating(time){return this.departures.length>0||(this.placed??[]).some(item=>time<item.born+this.duration);}
 
- activateVisible(time,scroll,height){
-  const pending=(this.placed??[]).filter(item=>item.deferred&&item.y+item.size*1.5>=scroll&&item.y-item.size*1.5<=scroll+height);
-  if(!pending.length)return false;
-  const maxDelay=this.options.maxStaggerDelay??.7;
-  pending.forEach((placed,index)=>{
-   const born=time+Math.min(index*this.stagger,maxDelay),source=this.items[placed.sourceIndex];
-   placed.born=born;placed.deferred=false;
-   if(source){source.born=born;source.deferred=false;}
-  });
-  return true;
+ animationFrontier(time){
+  let frontier=null;
+  for(const item of this.placed??[]){
+   if(item.born>time)break;
+   if(time<item.born+this.duration)frontier=item;
+  }
+  return frontier;
  }
 
  layout(){
@@ -38,13 +35,13 @@ export class NativeRenderer extends LineRenderer{
  }
 
  draw(time,{staticAmount=null}={}){
-  const scroll=this.canvas.parentElement.scrollTop,activated=staticAmount===null&&this.activateVisible(time,scroll,this.height),pending=this.isAnimating(time);if(!this.dirty&&!pending&&!activated&&staticAmount===null)return;this.dirty=pending;
-  this.svg.setAttribute('viewBox',`0 0 ${this.width} ${this.height}`);this.svg.style.height=`${this.height}px`;const keep=new Set(),engine=getSourceEngine();
+  const pending=this.isAnimating(time);if(!this.dirty&&!pending&&staticAmount===null)return;this.dirty=pending;
+  this.svg.setAttribute('viewBox',`0 0 ${this.width} ${this.height}`);this.svg.style.height=`${this.height}px`;const scroll=this.canvas.parentElement.scrollTop,keep=new Set(),engine=getSourceEngine();
   for(const [index,item] of (this.placed??[]).entries()){
    if(item.y+item.size*2<scroll||item.y-item.size*2>scroll+this.height)continue;keep.add(index);const glyph=item.glyph,amount=staticAmount===null?1-clamp((time-item.born)/this.duration):clamp(staticAmount);let entry=this.elements.get(index);
    if(entry&&entry.glyph!==glyph){entry.group.remove();this.elements.delete(index);entry=null;}
    if(!entry){entry=glyph.outlineOnly?this.makeOutlineEntry(glyph,index):this.makeCenterlineEntry(glyph);this.svg.append(entry.group);this.elements.set(index,entry);}
-   entry.group.setAttribute('transform',`translate(${item.x} ${item.y-scroll}) scale(${item.size/400}) translate(-200 -200)`);const hidden=staticAmount===null&&(item.deferred||time<item.born);entry.group.setAttribute('visibility',hidden?'hidden':'visible');if(hidden||entry.amount===amount)continue;
+   entry.group.setAttribute('transform',`translate(${item.x} ${item.y-scroll}) scale(${item.size/400}) translate(-200 -200)`);const hidden=staticAmount===null&&time<item.born;entry.group.setAttribute('visibility',hidden?'hidden':'visible');if(hidden||entry.amount===amount)continue;
     try{this.renderEntry(entry,glyph,amount,engine);this.canvas.dataset.renderError='';}catch(error){this.canvas.dataset.renderError=error.message;entry.group.setAttribute('visibility','hidden');}
    }
    for(const [index,entry] of this.elements)if(!keep.has(index)){entry.group.remove();this.elements.delete(index);}

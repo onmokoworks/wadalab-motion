@@ -18,21 +18,15 @@ test('a large paste keeps a stable overlapping interval without batch restarts',
  assert.equal(r.items.length,Array.from(text).length);for(let i=1;i<r.items.length;i++)assert.ok(r.items[i].born-r.items[i-1].born>=r.stagger-.000001);
 });
 
-test('a long paste remains deferred until its characters enter the viewport',async()=>{
- const r=renderer();r.options={maxStaggerDelay:.7};
- const text='文字禍'.repeat(200);
- await FoldRenderer.prototype.setText.call(r,text,()=>true,20,{deferNew:true});
+test('the animation frontier advances through a long paste without starting the remainder together',async()=>{
+ const r=renderer(),text='文字禍'.repeat(200);
+ await FoldRenderer.prototype.setText.call(r,text,()=>true,20);
  assert.equal(r.items.length,600);
- assert.ok(r.items.every(item=>item.deferred));
-});
-
-test('only deferred characters inside the viewport are activated',()=>{
- const items=Array.from({length:6},(_,index)=>({born:0,deferred:true}));
- const r={items,stagger:.07,options:{maxStaggerDelay:.7},placed:items.map((item,index)=>({...item,sourceIndex:index,y:index*100+40,size:50}))};
- const activated=NativeRenderer.prototype.activateVisible.call(r,10,0,250);
- assert.equal(activated,true);
- assert.deepEqual(r.items.map(item=>item.deferred),[false,false,false,true,true,true]);
- assert.deepEqual(r.items.slice(0,3).map(item=>item.born),[10,10.07,10.14]);
+ for(let i=1;i<r.items.length;i++)assert.ok(r.items[i].born-r.items[i-1].born>=r.stagger-.000001);
+ const view={duration:.35,placed:r.items.map((item,index)=>({...item,sourceIndex:index,y:index*10,size:50}))};
+ const frontier=NativeRenderer.prototype.animationFrontier.call(view,20.5);
+ assert.ok(frontier.sourceIndex>0&&frontier.sourceIndex<20);
+ assert.ok(r.items.at(-1).born>50);
 });
 
 test('slow generation cannot leave queued entry times in the past',async()=>{

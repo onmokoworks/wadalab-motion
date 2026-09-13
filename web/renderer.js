@@ -46,17 +46,17 @@ gl_FragColor=vec4(vec3(0.0666667),m.a*reveal);}`));gl.linkProgram(program);if(!g
   const glyph={text,rig,strategy,texture,advance,pixelFontSize,centerX,centerY,positions:new Float32Array(rig.vertices.length*2),screen:new Float32Array(rig.vertices.length*2),positionBuffer:gl.createBuffer(),uvBuffer:buffer(gl.ARRAY_BUFFER,new Float32Array(rig.vertices.flatMap(v=>[v.u,v.v]))),indexBuffer:buffer(gl.ELEMENT_ARRAY_BUFFER,new Uint16Array(rig.indices)),alpha};
   this.cache.set(text,glyph);return glyph;
  }
- async setText(text,isCurrent=()=>true,now=null,{deferNew=false}={}){
+ async setText(text,isCurrent=()=>true,now=null){
   const segments=[...new Intl.Segmenter('ja',{granularity:'grapheme'}).segment(text)].map(x=>x.segment),previous=this.items,next=new Array(segments.length);let prefix=0;
   while(prefix<previous.length&&prefix<segments.length&&previous[prefix].segment===segments[prefix]){next[prefix]=previous[prefix];prefix++;}
   let suffix=0;while(suffix<previous.length-prefix&&suffix<segments.length-prefix&&previous[previous.length-1-suffix].segment===segments[segments.length-1-suffix]){next[segments.length-1-suffix]=previous[previous.length-1-suffix];suffix++;}
-  const started=(typeof now==='function'?now():now)??performance.now()/1000,appendOnly=prefix===previous.length&&suffix===0,last=segments.length-suffix,maxDelay=this.options?.maxStaggerDelay??Infinity,ceiling=started+maxDelay;let nextBorn=Math.min(ceiling,Math.max(started,prefix?previous[prefix-1].born+this.stagger:started));
+  const started=(typeof now==='function'?now():now)??performance.now()/1000,appendOnly=prefix===previous.length&&suffix===0,last=segments.length-suffix;let nextBorn=Math.max(started,prefix?previous[prefix-1].born+this.stagger:started);
   let sliceStart=performance.now();for(let i=prefix;i<last;i++){
-   if(!isCurrent())return;const segment=segments[i],glyph=/^\s+$/u.test(segment)?null:this.make(segment),current=(typeof now==='function'?now():now)??performance.now()/1000,born=Math.min(ceiling,Math.max(nextBorn,current));next[i]={glyph,segment,born,deferred:deferNew};nextBorn=Math.min(ceiling,born+this.stagger);
+   if(!isCurrent())return;const segment=segments[i],glyph=/^\s+$/u.test(segment)?null:this.make(segment),current=(typeof now==='function'?now():now)??performance.now()/1000,born=Math.max(nextBorn,current);next[i]={glyph,segment,born};nextBorn=born+this.stagger;
    if(performance.now()-sliceStart>8){if(appendOnly){this.items=next.slice(0,i+1);this.layout();}await new Promise(requestAnimationFrame);sliceStart=performance.now();}
   }
   if(isCurrent()){
-   for(let i=1;i<next.length;i++){const earliest=Math.min(ceiling,next[i-1].born+this.stagger);if(next[i].born<earliest)next[i]={...next[i],born:earliest};}
+   for(let i=1;i<next.length;i++){const earliest=next[i-1].born+this.stagger;if(next[i].born<earliest)next[i]={...next[i],born:earliest};}
    this.items=next;this.layout();this.prune();
   }
  }
@@ -76,7 +76,7 @@ gl_FragColor=vec4(vec3(0.0666667),m.a*reveal);}`));gl.linkProgram(program);if(!g
    this.canvas.style.height=`${this.height}px`;
    if(this.spacer)this.spacer.style.height=`${Math.max(0,this.contentHeight-this.height)}px`;
   }
-  rows.forEach((row,r)=>{let x=pad;for(const item of row){if(item.glyph)this.placed.push({glyph:item.glyph,born:item.born,deferred:item.deferred,sourceIndex:item.sourceIndex,x:x+item.glyph.centerX*size,y:top+r*size*1.35+size*.96+item.glyph.centerY*size,size});x+=item.advance;}if(r===rows.length-1)this.caret={x,y:top+r*size*1.35+size*.08,height:size*.9};});
+  rows.forEach((row,r)=>{let x=pad;for(const item of row){if(item.glyph)this.placed.push({glyph:item.glyph,born:item.born,sourceIndex:item.sourceIndex,x:x+item.glyph.centerX*size,y:top+r*size*1.35+size*.96+item.glyph.centerY*size,size});x+=item.advance;}if(r===rows.length-1)this.caret={x,y:top+r*size*1.35+size*.08,height:size*.9};});
  }
  draw(time,{staticAmount=null}={}){
   const pending=this.placed?.some(item=>time<item.born+this.duration);
