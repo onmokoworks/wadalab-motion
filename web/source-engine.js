@@ -3,9 +3,9 @@ import {installVectorMath} from './source-fast.js';
 import {clamp,smooth} from './fold-core.js';
 import {plan,posedPaths,relayPaths,relayProfile} from './structure.js';
 export class SourceEngine{
- constructor(program,glyphs){this.vm=new SourceVM();this.vm.load(program);installVectorMath(this.vm);this.glyphs=new Map(glyphs);this.definitions=new Map(glyphs.map(row=>[row[0],row[2]??null]));this.cache=new Map();}
- resolve(text){if(this.glyphs.has(text))return text;if(text.length===1&&text.charCodeAt(0)>=33&&text.charCodeAt(0)<=126){const full=String.fromCharCode(text.charCodeAt(0)+0xfee0);if(this.glyphs.has(full))return full;}return null;}
- make(text,rule=10){const cacheKey=rule+':'+text;if(this.cache.has(cacheKey))return this.cache.get(cacheKey);const key=this.resolve(text);if(!key)throw Error(`原典に未収録：${text}`);const skeleton=fromAST(this.glyphs.get(key)),points=array(skeleton.a).map((p,id)=>({id,x:p.a,y:p.d.a,edges:[]}));
+ constructor(program,glyphs,ascii={glyphs:[]}){this.vm=new SourceVM();this.vm.load(program);installVectorMath(this.vm);this.glyphs=new Map(glyphs);this.ascii=new Map(ascii.glyphs.map(row=>[row[0],{paths:row[1],advance:row[2]}]));this.definitions=new Map(glyphs.map(row=>[row[0],row[2]??null]));this.cache=new Map();}
+ resolve(text){if(this.ascii.has(text)||this.glyphs.has(text))return text;return null;}
+ make(text,rule=10){const cacheKey=rule+':'+text;if(this.cache.has(cacheKey))return this.cache.get(cacheKey);const key=this.resolve(text);if(!key)throw Error(`原典に未収録：${text}`);if(this.ascii.has(key)){const {paths,advance}=this.ascii.get(key),restEntries=paths.map((commands,stroke)=>({stroke,d:commandsToD(commands)})),strokes=paths.map((commands,id)=>({id,type:'outline',ids:[],links:[],motionPath:commandPoints(commands)})),graph={nodes:[],edges:[],components:[],width:256,height:256},strategy={graph,parts:[],anchors:[],notice:null};const g={text,sourceCharacter:key,sourceDefinition:'TrueType outline',skeleton:null,points:[],strokes,strategy,outlineOnly:true,roundStrokes:new Set(),release:0,advance:advance/400,pixelFontSize:400,centerX:.5,centerY:-.4,pointBindings:[],restEntries,rest:restEntries.map(entry=>entry.d)};this.cache.set(cacheKey,g);return g;}const skeleton=fromAST(this.glyphs.get(key)),points=array(skeleton.a).map((p,id)=>({id,x:p.a,y:p.d.a,edges:[]}));
  const strokes=array(skeleton.d.a).map((s,id)=>{const ids=array(s.d.a),attrs=array(s.d.d),links=array(attrs.find(p=>p.a===sym('link'))?.d);for(const i of new Set([...ids,...links]))points[i].edges.push(id);return {id,type:s.a.s,ids,links};});
  // Adapt the source's point references to the same graph consumed by the
  // pre-port B/C motion functions. No bitmap analysis or replacement motion.
@@ -16,7 +16,7 @@ export class SourceEngine{
  // from sweeping sideways merely because its endpoints are vertically aligned;
  // the shorter branches articulate around it instead.
  if(rule>=10){const trunk=plan(graph,4),branching=new Set(graph.components.filter(ids=>ids.some(id=>graph.nodes[id].edges.length>=3)).flat());for(const part of strategy.parts){const edge=graph.edges[part.edge];if(branching.has(edge.a)&&branching.has(edge.b)&&trunk.parts[part.edge].fixed)part.fixed=true;}}
- const g={text,sourceCharacter:key,sourceDefinition:this.definitions.get(key),skeleton,points,strokes,strategy,roundStrokes:new Set(strokes.filter(isRoundStroke).map(s=>s.id)),release:relayProfile(strategy).release,advance:1,pixelFontSize:400,centerX:.5,centerY:-.4};
+ const g={text,sourceCharacter:key,sourceDefinition:this.definitions.get(key),skeleton,points,strokes,strategy,outlineOnly:strokes.length>0&&strokes.every(stroke=>stroke.type==='outline'),roundStrokes:new Set(strokes.filter(isRoundStroke).map(s=>s.id)),release:relayProfile(strategy).release,advance:1,pixelFontSize:400,centerX:.5,centerY:-.4};
  g.pointBindings=points.map(point=>bindPoint(strategy,point));
  g.restEntries=this.outlineEntries(g,0);g.rest=g.restEntries.map(entry=>entry.d);this.cache.set(cacheKey,g);return g;
  }
@@ -86,6 +86,8 @@ export class SourceEngine{
 }
 
 function pointOf(p){return {x:p.d.a,y:p.d.d.a};}
+function commandsToD(commands){return commands.map(command=>command[0]==='Z'?'Z':command[0]+command.slice(1).join(' ')).join(' ');}
+function commandPoints(commands){const points=[];for(const command of commands){if(command[0]==='M'||command[0]==='L')points.push({x:command[1],y:command[2]});else if(command[0]==='Q')points.push({x:command[3],y:command[4]});}return points;}
 function flattenTagged(tagged){
  if(!tagged.length)return [];
  const out=[pointOf(tagged[0])];let previous=out[0];
@@ -160,5 +162,5 @@ export function sourceGraph(points,strokes){
 }
 
 let engine;
-export async function loadSourceEngine(){if(engine)return engine;const [program,glyphs]=await Promise.all(['/source-program.json','/source-glyphs.json'].map(url=>fetch(url).then(r=>{if(!r.ok)throw Error('原典データを読み込めません');return r.json();})));return engine=new SourceEngine(program,glyphs);}
+export async function loadSourceEngine(){if(engine)return engine;const [program,glyphs,ascii]=await Promise.all(['/source-program.json','/source-glyphs.json','/font/ascii-outlines.json'].map(url=>fetch(url).then(r=>{if(!r.ok)throw Error('原典データを読み込めません');return r.json();})));return engine=new SourceEngine(program,glyphs,ascii);}
 export const getSourceEngine=()=>engine;
