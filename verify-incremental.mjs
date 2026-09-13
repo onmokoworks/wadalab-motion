@@ -17,6 +17,15 @@ test('a large paste keeps a stable overlapping interval without batch restarts',
  assert.equal(r.items.length,Array.from(text).length);for(let i=1;i<r.items.length;i++)assert.ok(r.items[i].born-r.items[i-1].born>=r.stagger-.000001);
 });
 
+test('the live site does not carry a long paste delay into later screens',async()=>{
+ const r=renderer();r.options={maxStaggerDelay:.7};
+ const text='文字禍'.repeat(200);
+ await FoldRenderer.prototype.setText.call(r,text,()=>true,20);
+ assert.equal(r.items.length,600);
+ assert.ok(r.items.every(item=>item.born<=20.7+.000001));
+ assert.equal(r.items.at(-1).born,20.7);
+});
+
 test('slow generation cannot leave queued entry times in the past',async()=>{
  let clock=30;const r=renderer();r.make=segment=>{clock+=.12;return {text:segment};};
  await FoldRenderer.prototype.setText.call(r,'和田研究',()=>true,()=>clock);

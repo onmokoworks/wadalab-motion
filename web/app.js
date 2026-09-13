@@ -9,12 +9,13 @@ let engine,renderer,token=0,composing=false,clock=0,lastFrame=0,inputFocused=fal
 
 function fontSize(){return innerWidth<600?72:112;}
 
-async function update(){
+async function update({bulkHint=false}={}){
  const mine=++token;
  document.body.classList.remove('waiting');
  if(!renderer)return;
  const text=$('input').value,characters=segments(text),missing=[...new Set(characters.filter(character=>character.trim()&&!engine.resolve(character)))];
  const previous=renderer.items.map(item=>item.segment),removed=removedIndices(previous,characters);
+ const stage=$('stage'),savedScrollTop=stage.scrollTop,bulk=bulkHint||Math.abs(characters.length-previous.length)>12||removed.length>12;
  if(removed.length){const delays=deletionDelays(removed.length);renderer.queueDepartures(removed.map((sourceIndex,index)=>({sourceIndex,delay:delays[index]})),clock);}
  $('error').textContent=missing.length?`未収録：${missing.join('・')}`:'';
  const safe=characters.map(character=>missing.includes(character)?' ':character).join('');
@@ -22,9 +23,8 @@ async function update(){
   await renderer.setText(safe,()=>mine===token,()=>clock);
   if(mine!==token)return;
   renderer.canvas.dataset.glyphs=String(renderer.placed.length);
-  const stage=$('stage');
-  if(stage.scrollHeight-stage.scrollTop-stage.clientHeight<renderer.options.fontSize*2)stage.scrollTop=stage.scrollHeight;
-  keepActivityVisible();
+  if(bulk){stage.scrollTop=Math.min(savedScrollTop,Math.max(0,stage.scrollHeight-stage.clientHeight));updateCaret();}
+  else keepActivityVisible();
  }catch(error){if(mine===token)$('error').textContent=error.message;}
 }
 
@@ -51,7 +51,7 @@ function syncViewport(){
 
 $('input').addEventListener('compositionstart',()=>{composing=true;++token;});
 $('input').addEventListener('compositionend',()=>{composing=false;update();});
-$('input').addEventListener('input',()=>{if(!composing)update();});
+$('input').addEventListener('input',event=>{if(!composing)update({bulkHint:event.inputType==='insertFromPaste'||event.inputType==='insertFromDrop'});});
 $('input').addEventListener('focus',()=>{inputFocused=true;});
 $('input').addEventListener('blur',()=>{inputFocused=false;document.body.classList.remove('waiting');});
 
@@ -65,7 +65,7 @@ $('info').onclick=async()=>{
 };
 $('paste').onclick=async()=>{
  const button=$('paste');button.disabled=true;
- try{const text=await navigator.clipboard.readText();$('input').value=text;$('input').setSelectionRange(text.length,text.length);await update();}
+ try{const text=await navigator.clipboard.readText();$('input').value=text;$('input').setSelectionRange(text.length,text.length);await update({bulkHint:true});}
  catch{$('error').textContent='クリップボードを読み取れませんでした。ブラウザの許可を確認してください。';}
  finally{button.disabled=false;focusInput();}
 };
@@ -90,7 +90,7 @@ async function initialize(){
  try{
   syncViewport();
   engine=await loadSourceEngine();
-  renderer=new NativeRenderer($('canvas'),{compact:true,fontSize:fontSize(),pad:4,top:58,variant:11,structural:true,motionMode:'close'});
+  renderer=new NativeRenderer($('canvas'),{compact:true,fontSize:fontSize(),pad:4,top:58,variant:11,structural:true,motionMode:'close',maxStaggerDelay:.7});
   await update();
   focusInput();
  }catch(error){$('error').textContent=error.message;}
