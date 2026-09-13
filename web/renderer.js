@@ -50,14 +50,14 @@ gl_FragColor=vec4(vec3(0.0666667),m.a*reveal);}`));gl.linkProgram(program);if(!g
   const segments=[...new Intl.Segmenter('ja',{granularity:'grapheme'}).segment(text)].map(x=>x.segment),previous=this.items,next=new Array(segments.length);let prefix=0;
   while(prefix<previous.length&&prefix<segments.length&&previous[prefix].segment===segments[prefix]){next[prefix]=previous[prefix];prefix++;}
   let suffix=0;while(suffix<previous.length-prefix&&suffix<segments.length-prefix&&previous[previous.length-1-suffix].segment===segments[segments.length-1-suffix]){next[segments.length-1-suffix]=previous[previous.length-1-suffix];suffix++;}
-  const started=(typeof now==='function'?now():now)??performance.now()/1000,appendOnly=prefix===previous.length&&suffix===0,last=segments.length-suffix;let nextBorn=Math.max(started,prefix?previous[prefix-1].born+this.stagger:started);
+  const started=(typeof now==='function'?now():now)??performance.now()/1000,appendOnly=prefix===previous.length&&suffix===0,last=segments.length-suffix,entryGap=Math.max(this.stagger,this.duration);let nextBorn=Math.max(started,prefix?previous[prefix-1].born+entryGap:started);
   let sliceStart=performance.now();for(let i=prefix;i<last;i++){
-   if(!isCurrent())return;const segment=segments[i],glyph=/^\s+$/u.test(segment)?null:this.make(segment),current=(typeof now==='function'?now():now)??performance.now()/1000,born=Math.max(nextBorn,current);next[i]={glyph,segment,born};nextBorn=born+this.stagger;
+   if(!isCurrent())return;const segment=segments[i],glyph=/^\s+$/u.test(segment)?null:this.make(segment),current=(typeof now==='function'?now():now)??performance.now()/1000,born=Math.max(nextBorn,current);next[i]={glyph,segment,born};nextBorn=born+entryGap;
    if(performance.now()-sliceStart>8){if(appendOnly){this.items=next.slice(0,i+1);this.layout();}await new Promise(requestAnimationFrame);sliceStart=performance.now();}
   }
   if(isCurrent()){this.items=next;this.layout();this.prune();}
  }
- replay(now=performance.now()/1000){this.items.forEach((item,i)=>item.born=now+i*this.stagger);this.layout();}
+ replay(now=performance.now()/1000){const entryGap=Math.max(this.stagger,this.duration);this.items.forEach((item,i)=>item.born=now+i*entryGap);this.layout();}
  prune(){
   const keep=new Set(this.items.map(i=>i.segment));
   for(const [key,g] of this.cache){if(this.cache.size<=80)break;if(keep.has(key))continue;this.gl.deleteTexture(g.texture);for(const b of [g.positionBuffer,g.uvBuffer,g.indexBuffer])this.gl.deleteBuffer(b);this.cache.delete(key);}
