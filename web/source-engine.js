@@ -162,5 +162,6 @@ export function sourceGraph(points,strokes){
 }
 
 let engine;
-export async function loadSourceEngine(){if(engine)return engine;const [program,glyphs,ascii]=await Promise.all(['/source-program.json','/source-glyphs.json','/font/ascii-outlines.json'].map(url=>fetch(url).then(r=>{if(!r.ok)throw Error('原典データを読み込めません');return r.json();})));return engine=new SourceEngine(program,glyphs,ascii);}
+async function fetchJson(url){let last;for(let attempt=0;attempt<3;attempt++){try{const response=await fetch(url);if(!response.ok)throw Error(`${response.status} ${response.statusText}`);return await response.json();}catch(error){last=error;if(attempt<2)await new Promise(resolve=>setTimeout(resolve,150*2**attempt));}}throw Error(`原典データを読み込めません：${url}（${last?.message??'通信エラー'}）`);}
+export async function loadSourceEngine(){if(engine)return engine;const [program,glyphs,ascii]=await Promise.all(['/source-program.json','/source-glyphs.json','/font/ascii-outlines.json'].map(fetchJson));return engine=new SourceEngine(program,glyphs,ascii);}
 export const getSourceEngine=()=>engine;
