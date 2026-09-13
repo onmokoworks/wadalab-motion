@@ -5,12 +5,13 @@ import {deletionDelays,removedIndices} from './deletion-schedule.js';
 const $=id=>document.getElementById(id);
 const segmenter=new Intl.Segmenter('ja',{granularity:'grapheme'});
 const segments=text=>[...segmenter.segment(text)].map(entry=>entry.segment);
-let engine,renderer,token=0,composing=false,clock=0,lastFrame=0;
+let engine,renderer,token=0,composing=false,clock=0,lastFrame=0,inputFocused=false;
 
 function fontSize(){return innerWidth<600?72:112;}
 
 async function update(){
  const mine=++token;
+ document.body.classList.remove('waiting');
  if(!renderer)return;
  const text=$('input').value,characters=segments(text),missing=[...new Set(characters.filter(character=>character.trim()&&!engine.resolve(character)))];
  const previous=renderer.items.map(item=>item.segment),removed=removedIndices(previous,characters);
@@ -37,11 +38,11 @@ function updateCaret(){
 $('input').addEventListener('compositionstart',()=>{composing=true;++token;});
 $('input').addEventListener('compositionend',()=>{composing=false;update();});
 $('input').addEventListener('input',()=>{if(!composing)update();});
-$('input').addEventListener('focus',()=>document.body.classList.add('typing'));
-$('input').addEventListener('blur',()=>document.body.classList.remove('typing'));
+$('input').addEventListener('focus',()=>{inputFocused=true;});
+$('input').addEventListener('blur',()=>{inputFocused=false;document.body.classList.remove('waiting');});
 
 function focusInput(){if(!$('license').open)$('input').focus({preventScroll:true});}
-document.addEventListener('pointerdown',event=>{if(event.target.closest('button,dialog'))return;event.preventDefault();focusInput();},{passive:false});
+document.addEventListener('click',event=>{if(event.target.closest('button,dialog'))return;event.preventDefault();focusInput();});
 
 $('info').onclick=async()=>{
  $('license').showModal();
@@ -65,13 +66,14 @@ function frame(now){
  if(lastFrame&&!document.hidden&&!$('license').open)clock+=Math.min(.1,(now-lastFrame)/1000)*.75;
  lastFrame=now;
  if(renderer&&!document.hidden&&!$('license').open)renderer.draw(clock);
+ document.body.classList.toggle('waiting',Boolean(renderer&&inputFocused&&!composing&&!renderer.isAnimating(clock)&&!$('license').open));
  requestAnimationFrame(frame);
 }
 
 async function initialize(){
  try{
   engine=await loadSourceEngine();
-  renderer=new NativeRenderer($('canvas'),{compact:true,fontSize:fontSize(),top:58,variant:11,structural:true,motionMode:'close'});
+  renderer=new NativeRenderer($('canvas'),{compact:true,fontSize:fontSize(),pad:4,top:58,variant:11,structural:true,motionMode:'close'});
   await update();
   focusInput();
  }catch(error){$('error').textContent=error.message;}

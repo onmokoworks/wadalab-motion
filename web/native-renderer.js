@@ -17,6 +17,8 @@ export class NativeRenderer extends LineRenderer{
   if(this.departures.length){this.departureFloor=Math.max(this.departureFloor,this.contentHeight??this.height??0);if(this.spacer)this.spacer.style.height=`${Math.max(0,this.departureFloor-this.height)}px`;this.dirty=true;}
  }
 
+ isAnimating(time){return this.departures.length>0||(this.placed??[]).some(item=>time<item.born+this.duration);}
+
  layout(){
   const saved=this.options.relay;this.options.relay=false;const original=this.items;
   if(saved){let previous=null;this.items=original.map(item=>{if(!item.glyph){const born=previous?Math.max(item.born,previous.born+previous.release*this.duration):item.born;previous={born,release:this.stagger/this.duration};return {...item,born};}const born=previous?Math.max(item.born,previous.born+previous.release*this.duration):item.born,placed={...item,born};previous={born,release:item.glyph.release};return placed;});}
@@ -24,7 +26,7 @@ export class NativeRenderer extends LineRenderer{
  }
 
  draw(time,{staticAmount=null}={}){
-  const pending=this.placed?.some(item=>time<item.born+this.duration)||this.departures.length>0;if(!this.dirty&&!pending&&staticAmount===null)return;this.dirty=pending;
+  const pending=this.isAnimating(time);if(!this.dirty&&!pending&&staticAmount===null)return;this.dirty=pending;
   this.svg.setAttribute('viewBox',`0 0 ${this.width} ${this.height}`);this.svg.style.height=`${this.height}px`;const scroll=this.canvas.parentElement.scrollTop,keep=new Set(),engine=getSourceEngine();
   for(const [index,item] of (this.placed??[]).entries()){
    if(item.y+item.size*2<scroll||item.y-item.size*2>scroll+this.height)continue;keep.add(index);const glyph=item.glyph,amount=staticAmount===null?1-clamp((time-item.born)/this.duration):clamp(staticAmount);let entry=this.elements.get(index);

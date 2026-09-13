@@ -9,12 +9,12 @@
 </head>
 <body>
  <main id="stage">
+  <button id="paste" aria-label="クリップボードの全文で置き換え">貼り付け</button>
+  <button id="info" aria-label="ライセンスを表示">ⓘ</button>
   <canvas id="canvas" aria-label="入力した文字"></canvas>
  </main>
  <textarea id="input" aria-label="文字を入力" autocomplete="off" autocapitalize="off" spellcheck="false" autofocus></textarea>
  <span id="caret" aria-hidden="true"></span>
- <button id="info" aria-label="ライセンスを表示">ⓘ</button>
- <button id="paste" aria-label="クリップボードの全文で置き換え">貼り付け</button>
  <p id="error" role="status"></p>
  <dialog id="license">
   <button id="close" aria-label="閉じる">×</button>
