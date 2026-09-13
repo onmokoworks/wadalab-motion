@@ -8,32 +8,49 @@ const pathD=path=>path.map((p,i)=>`${i?'L':'M'}${p.x} ${p.y}`).join(' ');
 let rendererId=0;
 
 export class NativeRenderer extends LineRenderer{
- constructor(...args){super(...args);this.rendererId=++rendererId;}
+ constructor(...args){super(...args);this.rendererId=++rendererId;this.departures=[];this.departureElements=new Map();this.departureSerial=0;this.departureFloor=0;}
  make(text){const glyph=getSourceEngine().make(text,this.variant);this.cache.set(text,glyph);return glyph;}
+
+ queueDepartures(rows,now){
+  const placedBySource=new Map((this.placed??[]).map(item=>[item.sourceIndex,item]));
+  for(const row of rows){const placed=placedBySource.get(row.sourceIndex);if(!placed)continue;this.departures.push({...placed,id:++this.departureSerial,born:now+row.delay});}
+  if(this.departures.length){this.departureFloor=Math.max(this.departureFloor,this.contentHeight??this.height??0);if(this.spacer)this.spacer.style.height=`${Math.max(0,this.departureFloor-this.height)}px`;this.dirty=true;}
+ }
 
  layout(){
   const saved=this.options.relay;this.options.relay=false;const original=this.items;
   if(saved){let previous=null;this.items=original.map(item=>{if(!item.glyph){const born=previous?Math.max(item.born,previous.born+previous.release*this.duration):item.born;previous={born,release:this.stagger/this.duration};return {...item,born};}const born=previous?Math.max(item.born,previous.born+previous.release*this.duration):item.born,placed={...item,born};previous={born,release:item.glyph.release};return placed;});}
-  super.layout();this.items=original;this.options.relay=saved;
+  super.layout();this.items=original;this.options.relay=saved;if(this.departures.length&&this.spacer)this.spacer.style.height=`${Math.max(0,Math.max(this.contentHeight,this.departureFloor)-this.height)}px`;
  }
 
  draw(time,{staticAmount=null}={}){
-  const pending=this.placed?.some(item=>time<item.born+this.duration);if(!this.dirty&&!pending&&staticAmount===null)return;this.dirty=pending;
+  const pending=this.placed?.some(item=>time<item.born+this.duration)||this.departures.length>0;if(!this.dirty&&!pending&&staticAmount===null)return;this.dirty=pending;
   this.svg.setAttribute('viewBox',`0 0 ${this.width} ${this.height}`);this.svg.style.height=`${this.height}px`;const scroll=this.canvas.parentElement.scrollTop,keep=new Set(),engine=getSourceEngine();
   for(const [index,item] of (this.placed??[]).entries()){
    if(item.y+item.size*2<scroll||item.y-item.size*2>scroll+this.height)continue;keep.add(index);const glyph=item.glyph,amount=staticAmount===null?1-clamp((time-item.born)/this.duration):clamp(staticAmount);let entry=this.elements.get(index);
    if(entry&&entry.glyph!==glyph){entry.group.remove();this.elements.delete(index);entry=null;}
    if(!entry){entry=glyph.outlineOnly?this.makeOutlineEntry(glyph,index):this.makeCenterlineEntry(glyph);this.svg.append(entry.group);this.elements.set(index,entry);}
    entry.group.setAttribute('transform',`translate(${item.x} ${item.y-scroll}) scale(${item.size/400}) translate(-200 -200)`);const hidden=staticAmount===null&&time<item.born;entry.group.setAttribute('visibility',hidden?'hidden':'visible');if(hidden||entry.amount===amount)continue;
-   try{
-    if(glyph.outlineOnly){this.drawOutlineEntry(entry,amount);entry.amount=amount;this.canvas.dataset.renderError='';continue;}
-    const pieces=this.options.motionMode==='junction'?engine.junctionBranchPaths(glyph,amount):this.options.motionMode==='tangent'?engine.tangentRelayStrokePaths(glyph,amount):this.options.motionMode==='close'?engine.closeLoopPaths(glyph,amount):this.options.motionMode==='carefulClose'?engine.carefulClosePaths(glyph,amount):this.options.curveUnfold?engine.cPlus2StrokePaths(glyph,amount):this.options.roundTrim?engine.cPlusStrokePaths(glyph,amount):engine.motionStrokePaths(glyph,amount,this.options.relay),reveal=this.roundReveal(glyph,pieces,amount);
-    while(entry.paths.length<pieces.length){const path=svg('path');path.setAttribute('pathLength','1');entry.group.append(path);entry.paths.push(path);}
-    pieces.forEach((piece,i)=>{const path=entry.paths[i],progress=reveal.get(i)??1,pathLength=piece.path.slice(1).reduce((sum,point,j)=>sum+Math.hypot(point.x-piece.path[j].x,point.y-piece.path[j].y),0);path.setAttribute('d',pathLength>.001?pathD(piece.path):'');if(this.options.motionMode&&pathLength<16)path.setAttribute('stroke-linecap','butt');else path.removeAttribute('stroke-linecap');if(progress>=.999){path.removeAttribute('stroke-dasharray');path.removeAttribute('stroke-dashoffset');}else{path.setAttribute('stroke-dasharray','1');path.setAttribute('stroke-dashoffset',String(1-progress));}});
-    entry.paths.forEach((path,i)=>{if(i>=pieces.length)path.setAttribute('d','');});entry.amount=amount;this.canvas.dataset.renderError='';
-   }catch(error){this.canvas.dataset.renderError=error.message;entry.group.setAttribute('visibility','hidden');}
+    try{this.renderEntry(entry,glyph,amount,engine);this.canvas.dataset.renderError='';}catch(error){this.canvas.dataset.renderError=error.message;entry.group.setAttribute('visibility','hidden');}
+   }
+   for(const [index,entry] of this.elements)if(!keep.has(index)){entry.group.remove();this.elements.delete(index);}
+   let completed=false;
+   for(const item of this.departures){
+    if(time>=item.born+this.duration){this.departureElements.get(item.id)?.group.remove();this.departureElements.delete(item.id);item.complete=true;completed=true;continue;}
+    if(item.y+item.size*2<scroll||item.y-item.size*2>scroll+this.height)continue;
+    let entry=this.departureElements.get(item.id);if(!entry){entry=item.glyph.outlineOnly?this.makeOutlineEntry(item.glyph,`departure-${item.id}`):this.makeCenterlineEntry(item.glyph);this.svg.append(entry.group);this.departureElements.set(item.id,entry);}
+    entry.group.setAttribute('visibility','visible');entry.group.setAttribute('transform',`translate(${item.x} ${item.y-scroll}) scale(${item.size/400}) translate(-200 -200)`);
+    const amount=time<item.born?0:clamp((time-item.born)/this.duration);if(entry.amount!==amount)this.renderEntry(entry,item.glyph,amount,engine);
+   }
+   if(completed){this.departures=this.departures.filter(item=>!item.complete);if(!this.departures.length){this.departureFloor=0;this.layout();}}
   }
-  for(const [index,entry] of this.elements)if(!keep.has(index)){entry.group.remove();this.elements.delete(index);}
+
+ renderEntry(entry,glyph,amount,engine){
+  if(glyph.outlineOnly){this.drawOutlineEntry(entry,amount);entry.amount=amount;return;}
+  const pieces=this.options.motionMode==='junction'?engine.junctionBranchPaths(glyph,amount):this.options.motionMode==='tangent'?engine.tangentRelayStrokePaths(glyph,amount):this.options.motionMode==='close'?engine.closeLoopPaths(glyph,amount):this.options.motionMode==='carefulClose'?engine.carefulClosePaths(glyph,amount):this.options.curveUnfold?engine.cPlus2StrokePaths(glyph,amount):this.options.roundTrim?engine.cPlusStrokePaths(glyph,amount):engine.motionStrokePaths(glyph,amount,this.options.relay),reveal=this.roundReveal(glyph,pieces,amount);
+  while(entry.paths.length<pieces.length){const path=svg('path');path.setAttribute('pathLength','1');entry.group.append(path);entry.paths.push(path);}
+  pieces.forEach((piece,i)=>{const path=entry.paths[i],progress=reveal.get(i)??1,pathLength=piece.path.slice(1).reduce((sum,point,j)=>sum+Math.hypot(point.x-piece.path[j].x,point.y-piece.path[j].y),0);path.setAttribute('d',pathLength>.001?pathD(piece.path):'');if(this.options.motionMode&&pathLength<16)path.setAttribute('stroke-linecap','butt');else path.removeAttribute('stroke-linecap');if(progress>=.999){path.removeAttribute('stroke-dasharray');path.removeAttribute('stroke-dashoffset');}else{path.setAttribute('stroke-dasharray','1');path.setAttribute('stroke-dashoffset',String(1-progress));}});
+  entry.paths.forEach((path,i)=>{if(i>=pieces.length)path.setAttribute('d','');});entry.amount=amount;
  }
 
  makeCenterlineEntry(glyph){

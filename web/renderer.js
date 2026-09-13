@@ -69,14 +69,14 @@ gl_FragColor=vec4(vec3(0.0666667),m.a*reveal);}`));gl.linkProgram(program);if(!g
   this.dirty=true;
   const rect=this.options.fontSize?this.canvas.parentElement.getBoundingClientRect():this.canvas.getBoundingClientRect(),dpr=Math.min(2,devicePixelRatio||1);this.width=rect.width;this.height=rect.height;this.canvas.width=Math.round(rect.width*dpr);this.canvas.height=Math.round(rect.height*dpr);
   const pad=this.options.pad??(this.options.compact?10:this.width<600?20:32),top=this.options.top??(this.options.compact?14:72);let size=this.options.fontSize??(this.options.compact?Math.min(52,this.width/4.7):this.width<600?motion.mobileFontSize:motion.fontSize);
-  const makeRows=s=>{const rows=[[]];let width=0;for(const item of this.items){const advance=s*(item.glyph?item.glyph.advance:.5)+s*.06;if(item.segment==='\n'){rows.push([]);width=0;continue;}if(width+advance>this.width-pad*2&&rows.at(-1).length){rows.push([]);width=0;}rows.at(-1).push({...item,advance});width+=advance;}return rows;};
+  const makeRows=s=>{const rows=[[]];let width=0;for(const [sourceIndex,item] of this.items.entries()){const advance=s*(item.glyph?item.glyph.advance:.5)+s*.06;if(item.segment==='\n'){rows.push([]);width=0;continue;}if(width+advance>this.width-pad*2&&rows.at(-1).length){rows.push([]);width=0;}rows.at(-1).push({...item,sourceIndex,advance});width+=advance;}return rows;};
   let rows=makeRows(size);while(!this.options.fontSize&&rows.length*size*1.35>this.height-top-pad&&size>14){size*=.92;rows=makeRows(size);}this.placed=[];
   if(this.options.fontSize){
    this.contentHeight=Math.max(this.height,rows.length*size*1.35+top+pad);
    this.canvas.style.height=`${this.height}px`;
    if(this.spacer)this.spacer.style.height=`${Math.max(0,this.contentHeight-this.height)}px`;
   }
-  rows.forEach((row,r)=>{let x=pad;for(const item of row){if(item.glyph)this.placed.push({glyph:item.glyph,born:item.born,x:x+item.glyph.centerX*size,y:top+r*size*1.35+size*.96+item.glyph.centerY*size,size});x+=item.advance;}});
+  rows.forEach((row,r)=>{let x=pad;for(const item of row){if(item.glyph)this.placed.push({glyph:item.glyph,born:item.born,sourceIndex:item.sourceIndex,x:x+item.glyph.centerX*size,y:top+r*size*1.35+size*.96+item.glyph.centerY*size,size});x+=item.advance;}});
  }
  draw(time,{staticAmount=null}={}){
   const pending=this.placed?.some(item=>time<item.born+this.duration);

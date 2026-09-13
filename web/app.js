@@ -1,5 +1,6 @@
 import {NativeRenderer} from './native-renderer.js';
 import {loadSourceEngine} from './source-engine.js';
+import {deletionDelays,removedIndices} from './deletion-schedule.js';
 
 const $=id=>document.getElementById(id);
 const segmenter=new Intl.Segmenter('ja',{granularity:'grapheme'});
@@ -12,6 +13,8 @@ async function update(){
  const mine=++token;
  if(!renderer)return;
  const text=$('input').value,characters=segments(text),missing=[...new Set(characters.filter(character=>character.trim()&&!engine.resolve(character)))];
+ const previous=renderer.items.map(item=>item.segment),removed=removedIndices(previous,characters);
+ if(removed.length){const delays=deletionDelays(removed.length);renderer.queueDepartures(removed.map((sourceIndex,index)=>({sourceIndex,delay:delays[index]})),clock);}
  $('error').textContent=missing.length?`未収録：${missing.join('・')}`:'';
  const safe=characters.map(character=>missing.includes(character)?' ':character).join('');
  try{
@@ -28,7 +31,7 @@ $('input').addEventListener('compositionend',()=>{composing=false;update();});
 $('input').addEventListener('input',()=>{if(!composing)update();});
 
 function focusInput(){if(!$('license').open)$('input').focus({preventScroll:true});}
-document.addEventListener('pointerdown',event=>{if(!event.target.closest('button,dialog'))focusInput();});
+document.addEventListener('pointerdown',event=>{if(event.target.closest('button,dialog'))return;event.preventDefault();focusInput();},{passive:false});
 
 $('info').onclick=async()=>{
  $('license').showModal();
