@@ -5,7 +5,7 @@ import {deletionDelays,removedIndices} from './deletion-schedule.js';
 const $=id=>document.getElementById(id);
 const segmenter=new Intl.Segmenter('ja',{granularity:'grapheme'});
 const segments=text=>[...segmenter.segment(text)].map(entry=>entry.segment);
-let engine,renderer,token=0,composing=false,clock=0,lastFrame=0,inputFocused=false;
+let engine,renderer,token=0,composing=false,clock=0,lastFrame=0,inputFocused=false,viewportFrame=0;
 
 function fontSize(){return innerWidth<600?72:112;}
 
@@ -24,7 +24,7 @@ async function update(){
   renderer.canvas.dataset.glyphs=String(renderer.placed.length);
   const stage=$('stage');
   if(stage.scrollHeight-stage.scrollTop-stage.clientHeight<renderer.options.fontSize*2)stage.scrollTop=stage.scrollHeight;
-  updateCaret();
+  keepActivityVisible();
  }catch(error){if(mine===token)$('error').textContent=error.message;}
 }
 
@@ -33,6 +33,20 @@ function updateCaret(){
  const caret=$('caret'),stage=$('stage');
  caret.style.transform=`translate(${renderer.caret.x}px,${renderer.caret.y-stage.scrollTop}px)`;
  caret.style.height=`${renderer.caret.height}px`;
+}
+
+function keepActivityVisible(){
+ if(!renderer?.caret)return;
+ const stage=$('stage'),departureBottom=Math.max(0,...renderer.departures.map(item=>item.y+item.size*.72)),bottom=Math.max(renderer.caret.y+renderer.caret.height,departureBottom),top=Math.min(renderer.caret.y,...renderer.departures.map(item=>item.y-item.size*.72)),margin=12;
+ if(bottom-stage.scrollTop>stage.clientHeight-margin)stage.scrollTop=Math.max(0,bottom-stage.clientHeight+margin);
+ else if(top<stage.scrollTop+margin)stage.scrollTop=Math.max(0,top-margin);
+ updateCaret();
+}
+
+function syncViewport(){
+ const height=window.visualViewport?.height??innerHeight;
+ document.documentElement.style.setProperty('--viewport-height',`${height}px`);
+ cancelAnimationFrame(viewportFrame);viewportFrame=requestAnimationFrame(()=>{if(!renderer)return;renderer.options.fontSize=fontSize();renderer.layout();keepActivityVisible();});
 }
 
 $('input').addEventListener('compositionstart',()=>{composing=true;++token;});
@@ -59,7 +73,9 @@ $('close').onclick=()=>$('license').close();
 $('license').addEventListener('click',event=>{if(event.target!==$('license'))return;const rect=event.target.getBoundingClientRect();if(event.clientX<rect.left||event.clientX>rect.right||event.clientY<rect.top||event.clientY>rect.bottom)event.target.close();});
 $('license').addEventListener('close',focusInput);
 
-addEventListener('resize',()=>{if(!renderer)return;renderer.options.fontSize=fontSize();renderer.layout();updateCaret();});
+addEventListener('resize',syncViewport);
+window.visualViewport?.addEventListener('resize',syncViewport);
+window.visualViewport?.addEventListener('scroll',syncViewport);
 $('stage').addEventListener('scroll',updateCaret,{passive:true});
 
 function frame(now){
@@ -72,6 +88,7 @@ function frame(now){
 
 async function initialize(){
  try{
+  syncViewport();
   engine=await loadSourceEngine();
   renderer=new NativeRenderer($('canvas'),{compact:true,fontSize:fontSize(),pad:4,top:58,variant:11,structural:true,motionMode:'close'});
   await update();
