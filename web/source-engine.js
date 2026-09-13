@@ -5,7 +5,7 @@ import {plan,posedPaths,relayPaths,relayProfile} from './structure.js';
 export class SourceEngine{
  constructor(program,glyphs,ascii={glyphs:[]}){this.vm=new SourceVM();this.vm.load(program);installVectorMath(this.vm);this.glyphs=new Map(glyphs);this.ascii=new Map(ascii.glyphs.map(row=>[row[0],{paths:row[1],advance:row[2]}]));this.definitions=new Map(glyphs.map(row=>[row[0],row[2]??null]));this.cache=new Map();}
  resolve(text){if(this.ascii.has(text)||this.glyphs.has(text))return text;return null;}
- make(text,rule=10){const cacheKey=rule+':'+text;if(this.cache.has(cacheKey))return this.cache.get(cacheKey);const key=this.resolve(text);if(!key)throw Error(`原典に未収録：${text}`);if(this.ascii.has(key)){const {paths,advance}=this.ascii.get(key),restEntries=paths.map((commands,stroke)=>({stroke,d:commandsToD(commands)})),strokes=paths.map((commands,id)=>({id,type:'outline',ids:[],links:[],motionPath:commandPoints(commands)})),graph={nodes:[],edges:[],components:[],width:256,height:256},strategy={graph,parts:[],anchors:[],notice:null};const g={text,sourceCharacter:key,sourceDefinition:'TrueType outline',skeleton:null,points:[],strokes,strategy,outlineOnly:true,roundStrokes:new Set(),release:0,advance:advance/400,pixelFontSize:400,centerX:.5,centerY:-.4,pointBindings:[],restEntries,rest:restEntries.map(entry=>entry.d)};this.cache.set(cacheKey,g);return g;}const skeleton=fromAST(this.glyphs.get(key)),points=array(skeleton.a).map((p,id)=>({id,x:p.a,y:p.d.a,edges:[]}));
+ make(text,rule=10){const cacheKey=rule+':'+text;if(this.cache.has(cacheKey))return this.cache.get(cacheKey);const key=this.resolve(text);if(!key)throw Error(`原典に未収録：${text}`);if(this.ascii.has(key)){const {paths,advance}=this.ascii.get(key),restEntries=paths.map((commands,stroke)=>({stroke,d:commandsToD(commands)})),strokes=paths.map((commands,id)=>({id,type:'outline',ids:[],links:[],motionPath:commandPoints(commands)})),graph={nodes:[],edges:[],components:[],width:256,height:256},strategy={graph,parts:[],anchors:[],notice:null};const g={text,sourceCharacter:key,sourceDefinition:'TrueType outline',skeleton:null,points:[],strokes,strategy,outlineOnly:true,roundStrokes:new Set(),arcUnfoldPlans:new Map(),release:0,advance:advance/400,pixelFontSize:400,centerX:.5,centerY:-.4,pointBindings:[],restEntries,rest:restEntries.map(entry=>entry.d)};this.cache.set(cacheKey,g);return g;}const skeleton=fromAST(this.glyphs.get(key)),points=array(skeleton.a).map((p,id)=>({id,x:p.a,y:p.d.a,edges:[]}));
  const strokes=array(skeleton.d.a).map((s,id)=>{const ids=array(s.d.a),attrs=array(s.d.d),links=array(attrs.find(p=>p.a===sym('link'))?.d);for(const i of new Set([...ids,...links]))points[i].edges.push(id);return {id,type:s.a.s,ids,links};});
  // Adapt the source's point references to the same graph consumed by the
  // pre-port B/C motion functions. No bitmap analysis or replacement motion.
@@ -16,7 +16,8 @@ export class SourceEngine{
  // from sweeping sideways merely because its endpoints are vertically aligned;
  // the shorter branches articulate around it instead.
  if(rule>=10){const trunk=plan(graph,4),branching=new Set(graph.components.filter(ids=>ids.some(id=>graph.nodes[id].edges.length>=3)).flat());for(const part of strategy.parts){const edge=graph.edges[part.edge];if(branching.has(edge.a)&&branching.has(edge.b)&&trunk.parts[part.edge].fixed)part.fixed=true;}}
- const g={text,sourceCharacter:key,sourceDefinition:this.definitions.get(key),skeleton,points,strokes,strategy,outlineOnly:strokes.length>0&&strokes.every(stroke=>stroke.type==='outline'),roundStrokes:new Set(strokes.filter(isRoundStroke).map(s=>s.id)),release:relayProfile(strategy).release,advance:1,pixelFontSize:400,centerX:.5,centerY:-.4};
+ const roundStrokes=new Set(strokes.filter(isRoundStroke).map(s=>s.id)),arcUnfoldPlans=new Map(strokes.filter(stroke=>!roundStrokes.has(stroke.id)).map(stroke=>[stroke.id,openArcPlan(stroke.motionPath)]).filter(([,value])=>value));
+ const g={text,sourceCharacter:key,sourceDefinition:this.definitions.get(key),skeleton,points,strokes,strategy,outlineOnly:strokes.length>0&&strokes.every(stroke=>stroke.type==='outline'),roundStrokes,arcUnfoldPlans,release:relayProfile(strategy).release,advance:1,pixelFontSize:400,centerX:.5,centerY:-.4};
  g.pointBindings=points.map(point=>bindPoint(strategy,point));
  g.restEntries=this.outlineEntries(g,0);g.rest=g.restEntries.map(entry=>entry.d);this.cache.set(cacheKey,g);return g;
  }
@@ -83,6 +84,11 @@ export class SourceEngine{
   return mergeStrokePieces(result).map(piece=>{if(g.roundStrokes.has(piece.stroke))return piece;const pivot=piece.pivot;return {...piece,path:piece.path.map(point=>({x:pivot.x+(point.x-pivot.x)*growth,y:pivot.y+(point.y-pivot.y)*growth}))};});
  }
 
+ cPlus2StrokePaths(g,amount){
+  const base=this.cPlusStrokePaths(g,amount),progress=clamp(1-amount),growth=smooth(clamp(progress/.28));
+  return base.map(piece=>{const plan=g.arcUnfoldPlans.get(piece.stroke);if(!plan)return piece;const source=g.strokes[piece.stroke].motionPath,path=unfoldOpenArc(source,plan,progress),pivot=plan.reverse?source.at(-1):source[0];return {...piece,pivot:{...pivot},path:path.map(point=>({x:pivot.x+(point.x-pivot.x)*growth,y:pivot.y+(point.y-pivot.y)*growth}))};});
+ }
+
 }
 
 function pointOf(p){return {x:p.d.a,y:p.d.d.a};}
@@ -103,6 +109,11 @@ function flattenTagged(tagged){
 function isRoundStroke(stroke){
  const path=stroke.motionPath;if(path.length<4)return false;const angles=path.slice(1).map((p,i)=>Math.atan2(p.y-path[i].y,p.x-path[i].x));let signed=0,absolute=0;for(let i=1;i<angles.length;i++){const turn=Math.atan2(Math.sin(angles[i]-angles[i-1]),Math.cos(angles[i]-angles[i-1]));signed+=turn;absolute+=Math.abs(turn);}const length=path.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-path[i].x,p.y-path[i].y),0),chord=Math.hypot(path.at(-1).x-path[0].x,path.at(-1).y-path[0].y);return absolute>Math.PI*1.45&&Math.abs(signed)/(absolute||1)>.72&&chord/(length||1)<.62;
 }
+
+const angleDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
+function straightEndRun(path,reverse=false){const points=reverse?[...path].reverse():path,angles=points.slice(1).map((point,i)=>Math.atan2(point.y-points[i].y,point.x-points[i].x)),base=angles[0];let segments=1,length=Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y);for(let i=1;i<angles.length;i++){if(Math.abs(angleDelta(angles[i],base))>Math.PI/15)break;segments=i+1;length+=Math.hypot(points[i+1].x-points[i].x,points[i+1].y-points[i].y);}return {reverse,segments,length};}
+function openArcPlan(path){if(path.length<8)return null;const angles=path.slice(1).map((point,i)=>Math.atan2(point.y-path[i].y,point.x-path[i].x));let signed=0,absolute=0;for(let i=1;i<angles.length;i++){const turn=angleDelta(angles[i],angles[i-1]);signed+=turn;absolute+=Math.abs(turn);}const length=path.slice(1).reduce((sum,point,i)=>sum+Math.hypot(point.x-path[i].x,point.y-path[i].y),0),chord=Math.hypot(path.at(-1).x-path[0].x,path.at(-1).y-path[0].y);if(Math.abs(signed)<Math.PI*.42||Math.abs(signed)/(absolute||1)<.78||chord/(length||1)<.18)return null;const candidates=[straightEndRun(path),straightEndRun(path,true)].sort((a,b)=>b.length-a.length),best=candidates[0];return best.length/length>=.14&&best.segments>=3?best:null;}
+function unfoldOpenArc(source,plan,progress){if(progress>=.999999)return source.map(point=>({...point}));const points=plan.reverse?[...source].reverse():source,angles=points.slice(1).map((point,i)=>Math.atan2(point.y-points[i].y,point.x-points[i].x)),out=[{...points[0]}],phase=clamp((progress-.10)/.78),tail=Math.max(1,angles.length-plan.segments);let angle=angles[0];for(let i=0;i<angles.length;i++){if(i<plan.segments)angle=angles[i];else{const distance=(i-plan.segments)/tail,local=smooth(clamp(phase*1.25-distance*.25));angle+=angleDelta(angles[i],angles[i-1])*local;}const length=Math.hypot(points[i+1].x-points[i].x,points[i+1].y-points[i].y),previous=out.at(-1);out.push({x:previous.x+Math.cos(angle)*length,y:previous.y+Math.sin(angle)*length});}return plan.reverse?out.reverse():out;}
 
 function mergeStrokePieces(pieces){
  const groups=new Map();for(const piece of [...pieces].sort((a,b)=>a.stroke-b.stroke||a.order-b.order)){let merged=groups.get(piece.stroke);if(!merged){merged={...piece,path:piece.path.map(point=>({...point}))};groups.set(piece.stroke,merged);continue;}const last=merged.path.at(-1),first=piece.path[0],start=Math.hypot(last.x-first.x,last.y-first.y)<1e-7?1:0;for(let i=start;i<piece.path.length;i++)merged.path.push({...piece.path[i]});
