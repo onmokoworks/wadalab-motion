@@ -1,4 +1,4 @@
-import {clockMotion,foldStrokePath,formatClock,transitionProgress} from './clock-core.js';
+import {clockMotion,foldStrokePath,formatClock,strokeVisibility,transitionProgress} from './clock-core.js';
 import {clamp} from './fold-core.js';
 
 const NS='http://www.w3.org/2000/svg',$=id=>document.getElementById(id),svg=tag=>document.createElementNS(NS,tag),pathD=path=>path.map((point,index)=>`${index?'L':'M'}${point.x} ${point.y}`).join(' ');
@@ -7,7 +7,7 @@ const slots=[];
 function makeLayer(){const group=svg('g');group.dataset.layer='glyph';return group;}
 function glyphBounds(glyph){if(glyph.bounds)return glyph.bounds;const points=glyph.paths.flat();return glyph.bounds={left:Math.min(...points.map(p=>p.x)),right:Math.max(...points.map(p=>p.x))};}
 function drawGlyph(group,glyph,amount){
- const progress=clamp(1-amount),bounds=glyphBounds(glyph),paths=glyph.paths.map(path=>foldStrokePath(path,progress));group.setAttribute('transform',`translate(${glyph.advance/2-(bounds.left+bounds.right)/2} 0)`);group.setAttribute('fill','none');group.setAttribute('stroke','#111');group.setAttribute('stroke-width',String(glyph.width));group.setAttribute('stroke-linecap','round');group.setAttribute('stroke-linejoin','round');
+ const progress=clamp(1-amount),bounds=glyphBounds(glyph),paths=glyph.paths.map(path=>foldStrokePath(path,progress));group.setAttribute('transform',`translate(${glyph.advance/2-(bounds.left+bounds.right)/2} 0)`);group.setAttribute('opacity',String(strokeVisibility(progress)));group.setAttribute('fill','none');group.setAttribute('stroke','#111');group.setAttribute('stroke-width',String(glyph.width));group.setAttribute('stroke-linecap','round');group.setAttribute('stroke-linejoin','round');
  while(group.children.length<paths.length)group.append(svg('path'));for(let i=0;i<group.children.length;i++)group.children[i].setAttribute('d',paths[i]?.length>1?pathD(paths[i]):'');
 }
 
