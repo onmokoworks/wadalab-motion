@@ -3,12 +3,12 @@ import {clockMotion,formatClock,transitionProgress} from './clock-core.js';
 import {clamp,smooth} from './fold-core.js';
 
 const NS='http://www.w3.org/2000/svg',$=id=>document.getElementById(id),svg=tag=>document.createElementNS(NS,tag),pathD=path=>path.map((point,index)=>`${index?'L':'M'}${point.x} ${point.y}`).join(' ');
-const slots=[],widths=[400,400,180,400,400,180,400,400];
+const slots=[];
 
 function makeLayer(){const group=svg('g');group.dataset.layer='glyph';return group;}
-function foldedOutline(d,growth,pivot={x:200,y:200}){let coordinate=0;return d.replace(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi,value=>{const number=Number(value),axis=coordinate++%2,x=axis?pivot.y:pivot.x;return String(x+(number-x)*growth);});}
+function foldedOutline(d,growth,pivot){let coordinate=0;return d.replace(/-?\d*\.?\d+(?:e[-+]?\d+)?/gi,value=>{const number=Number(value),axis=coordinate++%2,x=axis?pivot.y:pivot.x;return String(x+(number-x)*growth);});}
 function drawOutlineGlyph(group,glyph,amount){
- const progress=clamp(1-amount),last=Math.max(1,glyph.restEntries.length-1),d=glyph.restEntries.map((entry,index)=>{const delay=index?Math.max(.55,.3*index/last):0,local=smooth(clamp((progress-delay)/(1-delay)));return foldedOutline(entry.d,local);}).join(' ');
+ const progress=clamp(1-amount),last=Math.max(1,glyph.restEntries.length-1),pivot={x:glyph.advance*200,y:200},d=glyph.restEntries.map((entry,index)=>{const delay=index?Math.max(.55,.3*index/last):0,local=smooth(clamp((progress-delay)/(1-delay)));return foldedOutline(entry.d,local,pivot);}).join(' ');
  let path=group.firstElementChild;if(!path){path=svg('path');path.setAttribute('fill-rule','evenodd');group.append(path);}while(group.children.length>1)group.lastElementChild.remove();group.setAttribute('fill','#111');group.setAttribute('stroke','none');path.setAttribute('d',d);
 }
 function drawGlyph(engine,group,glyph,amount){
@@ -32,8 +32,8 @@ function draw(engine,now){
 }
 
 async function initialize(){
- const engine=await loadSourceEngine(),clock=$('clock');let x=0;
- for(const width of widths){const holder=svg('g'),outgoing=makeLayer(),incoming=makeLayer();holder.setAttribute('transform',`translate(${x+(width-400)/2} 0)`);holder.append(outgoing,incoming);clock.append(holder);slots.push({outgoing,incoming,current:null,previous:null,character:'',started:0});x+=width;}
+ const engine=await loadSourceEngine(),clock=$('clock'),characters=[...formatClock(new Date()).display];let x=0;
+ for(const character of characters){const width=engine.make(character,11).advance*400,holder=svg('g'),outgoing=makeLayer(),incoming=makeLayer();holder.setAttribute('transform',`translate(${x} 0)`);holder.append(outgoing,incoming);clock.append(holder);slots.push({outgoing,incoming,current:null,previous:null,character:'',started:0});x+=width;}clock.setAttribute('viewBox',`0 0 ${x} 400`);
  let lastSecond=-1;
  function frame(timestamp){const now=timestamp/1000,date=new Date(),second=Math.floor(date.getTime()/1000);if(second!==lastSecond){lastSecond=second;setTime(engine,date,now);}draw(engine,now);requestAnimationFrame(frame);}
  requestAnimationFrame(frame);
