@@ -157,9 +157,9 @@ export function relayProfile(strategy){
  let outgoing=0;paths.forEach((p,i)=>{if(Math.max(...p.map(v=>v.x))>Math.max(...paths[outgoing].map(v=>v.x)))outgoing=i;});
  return {delays,outgoing,release:delays[outgoing]+.6*(1-delays[outgoing])};
 }
-export function relaySchedule(items,duration){
+export function relaySchedule(items,duration,stagger=.07){
  let previous=null;return items.map(item=>{
-  if(!item.glyph){previous=null;return item.born;}
+  if(!item.glyph){const born=previous?Math.max(item.born,previous.born+previous.release*duration):item.born;previous={born,release:stagger/duration};return born;}
   const born=previous?Math.max(item.born,previous.born+previous.release*duration):item.born;
   previous={born,release:relayProfile(item.glyph.strategy).release};return born;
  });

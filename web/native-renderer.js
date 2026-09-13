@@ -13,7 +13,7 @@ export class NativeRenderer extends LineRenderer{
 
  layout(){
   const saved=this.options.relay;this.options.relay=false;const original=this.items;
-  if(saved){let previous=null;this.items=original.map(item=>{if(!item.glyph){previous=null;return item;}const born=previous?Math.max(item.born,previous.born+previous.glyph.release*this.duration):item.born,placed={...item,born};previous=placed;return placed;});}
+  if(saved){let previous=null;this.items=original.map(item=>{if(!item.glyph){const born=previous?Math.max(item.born,previous.born+previous.release*this.duration):item.born;previous={born,release:this.stagger/this.duration};return {...item,born};}const born=previous?Math.max(item.born,previous.born+previous.release*this.duration):item.born,placed={...item,born};previous={born,release:item.glyph.release};return placed;});}
   super.layout();this.items=original;this.options.relay=saved;
  }
 

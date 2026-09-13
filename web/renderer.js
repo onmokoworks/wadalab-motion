@@ -134,7 +134,7 @@ export class LineRenderer {
  replay(...args){this.canvas.parentElement.scrollTop=0;return FoldRenderer.prototype.replay.apply(this,args);}
  layout(){
   if(!this.options.relay)return FoldRenderer.prototype.layout.call(this);
-  const original=this.items,times=relaySchedule(original,this.duration);
+  const original=this.items,times=relaySchedule(original,this.duration,this.stagger);
   this.items=original.map((item,i)=>({...item,born:times[i]}));
   FoldRenderer.prototype.layout.call(this);this.items=original;
  }

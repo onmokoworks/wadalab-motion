@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import {FoldRenderer} from './web/renderer.js';
+import {relaySchedule} from './web/structure.js';
 
 function renderer(items=[]){return {items,duration:.35,stagger:.07,make:segment=>({text:segment}),layout(){this.layouts=(this.layouts??0)+1;},prune(){}};}
 
@@ -28,4 +29,9 @@ test('an unchanged suffix cannot appear before newly inserted middle text',async
  assert.equal(r.items[0],previous[0]);assert.equal(r.items[1],previous[1]);
  for(let i=1;i<r.items.length;i++)assert.ok(r.items[i].born-r.items[i-1].born>=r.stagger-.000001);
  assert.ok(r.items[4].born>=r.items[3].born+r.stagger-.000001);
+});
+
+test('a blank character does not restart a relay from an earlier base time',()=>{
+ const strategy={parts:[{path:[{x:0,y:0},{x:10,y:0}]}]},items=[{glyph:{strategy},born:1},{glyph:null,born:1.07},{glyph:{strategy},born:1.14}],times=relaySchedule(items,.35);
+ assert.ok(times[1]>=times[0]+.21-.000001);assert.ok(times[2]>=times[1]+.07-.000001);
 });
