@@ -10,8 +10,14 @@ test('typing appends one animated glyph without restarting the existing prefix',
  assert.equal(r.items[0],existing);assert.equal(r.items[0].born,1);assert.equal(r.items[1].born,10);
 });
 
-test('a large paste keeps its complete entry queue below one second',async()=>{
+test('a large paste keeps one stable interval instead of compressing into parallel entry',async()=>{
  const r=renderer(),text='天地玄黄宇宙洪荒日月盈昃辰宿列張寒来暑往秋収冬蔵閏余成歳律呂調陽雲騰致雨露結為霜金生麗水玉出崑岡剣号巨闕珠称夜光果珍李柰菜重芥薑海鹹河淡鱗潜羽翔';
  await FoldRenderer.prototype.setText.call(r,text,()=>true,20);
- assert.equal(r.items.length,Array.from(text).length);assert.ok(r.items.at(-1).born-r.items[0].born<=.800001);
+ assert.equal(r.items.length,Array.from(text).length);for(let i=1;i<r.items.length;i++)assert.ok(r.items[i].born-r.items[i-1].born>=.069999);
+});
+
+test('slow generation cannot leave queued entry times in the past',async()=>{
+ let clock=30;const r=renderer();r.make=segment=>{clock+=.12;return {text:segment};};
+ await FoldRenderer.prototype.setText.call(r,'和田研究',()=>true,()=>clock);
+ for(let i=0;i<r.items.length;i++){assert.ok(r.items[i].born>=30.12+i*.12-.000001);if(i)assert.ok(r.items[i].born>r.items[i-1].born);}
 });
