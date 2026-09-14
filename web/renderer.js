@@ -72,7 +72,7 @@ gl_FragColor=vec4(vec3(0.0666667),m.a*reveal);}`));gl.linkProgram(program);if(!g
   const makeRows=s=>{const rows=[[]];let width=0;for(const [sourceIndex,item] of this.items.entries()){const advance=s*(item.glyph?item.glyph.advance:.5)+s*.06;if(item.segment==='\n'){rows.push([]);width=0;continue;}if(width+advance>this.width-pad*2&&rows.at(-1).length){rows.push([]);width=0;}rows.at(-1).push({...item,sourceIndex,advance});width+=advance;}return rows;};
   let rows=makeRows(size);while(!this.options.fontSize&&rows.length*size*1.35>this.height-top-pad&&size>14){size*=.92;rows=makeRows(size);}this.placed=[];
   if(this.options.fontSize){
-   this.contentHeight=Math.max(this.height,rows.length*size*1.35+top+pad);
+   this.contentHeight=Math.max(this.height,rows.length*size*1.35+top+pad+(this.options.bottomPad??0));
    this.canvas.style.height=`${this.height}px`;
    if(this.spacer)this.spacer.style.height=`${Math.max(0,this.contentHeight-this.height)}px`;
   }

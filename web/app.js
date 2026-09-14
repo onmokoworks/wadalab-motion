@@ -10,7 +10,7 @@ let engine,renderer,token=0,composing=false,clock=0,lastFrame=0,inputFocused=fal
 
 function fontSize(){return innerWidth<600?72:112;}
 
-async function update({bulkHint=false}={}){
+async function update({bulkHint=false,preserveScroll=false}={}){
  const mine=++token;
  updating=true;
  document.body.classList.remove('waiting');
@@ -26,7 +26,7 @@ async function update({bulkHint=false}={}){
   await renderer.setText(safe,()=>mine===token,()=>clock);
   if(mine!==token)return;
   renderer.canvas.dataset.glyphs=String(renderer.placed.length);
-  if(bulk){stage.scrollTop=Math.min(savedScrollTop,Math.max(0,stage.scrollHeight-stage.clientHeight));updateCaret();}
+  if(bulk||preserveScroll){stage.scrollTop=Math.min(savedScrollTop,Math.max(0,stage.scrollHeight-stage.clientHeight));updateCaret();}
   else keepActivityVisible();
  }catch(error){if(mine===token)$('error').textContent=error.message;}
  finally{if(mine===token)updating=false;}
@@ -56,12 +56,12 @@ function keepPlaybackVisible(){
 function syncViewport(){
  const height=window.visualViewport?.height??innerHeight;
  document.documentElement.style.setProperty('--viewport-height',`${height}px`);
- cancelAnimationFrame(viewportFrame);viewportFrame=requestAnimationFrame(()=>{if(!renderer)return;renderer.options.fontSize=fontSize();renderer.layout();keepActivityVisible();});
+ cancelAnimationFrame(viewportFrame);viewportFrame=requestAnimationFrame(()=>{if(!renderer)return;renderer.options.fontSize=fontSize();renderer.options.bottomPad=height*.24;renderer.layout();keepActivityVisible();});
 }
 
 $('input').addEventListener('compositionstart',()=>{composing=true;++token;});
 $('input').addEventListener('compositionend',()=>{composing=false;update();});
-$('input').addEventListener('input',event=>{if(!composing)update({bulkHint:event.inputType==='insertFromPaste'||event.inputType==='insertFromDrop'});});
+$('input').addEventListener('input',event=>{if(!composing)update({bulkHint:event.inputType==='insertFromPaste'||event.inputType==='insertFromDrop',preserveScroll:event.inputType.startsWith('delete')});});
 $('input').addEventListener('keydown',event=>{
  if(event.key!=='Backspace'||composing||!bulkPlayback||!renderer)return;
  const frontier=renderer.animationFrontier(clock);if(!frontier)return;
@@ -96,6 +96,14 @@ window.visualViewport?.addEventListener('resize',syncViewport);
 window.visualViewport?.addEventListener('scroll',syncViewport);
 $('stage').addEventListener('scroll',updateCaret,{passive:true});
 
+function releasePlaybackScroll(){
+ if(!bulkPlayback)return;bulkPlayback=false;playbackScrollTarget=$('stage').scrollTop;
+}
+$('stage').addEventListener('wheel',releasePlaybackScroll,{passive:true});
+$('stage').addEventListener('touchstart',releasePlaybackScroll,{passive:true});
+$('stage').addEventListener('pointerdown',releasePlaybackScroll,{passive:true});
+document.addEventListener('keydown',event=>{if(['ArrowUp','ArrowDown','PageUp','PageDown','Home','End',' '].includes(event.key))releasePlaybackScroll();});
+
 function frame(now){
  const elapsed=lastFrame?Math.min(.1,(now-lastFrame)/1000):0;
  if(lastFrame&&!document.hidden&&!$('license').open)clock+=elapsed*.75;
@@ -115,7 +123,7 @@ async function initialize(){
  try{
   syncViewport();
   engine=await loadSourceEngine();
-  renderer=new NativeRenderer($('canvas'),{compact:true,fontSize:fontSize(),pad:4,top:58,variant:11,structural:true,motionMode:'close'});
+  renderer=new NativeRenderer($('canvas'),{compact:true,fontSize:fontSize(),pad:4,bottomPad:(window.visualViewport?.height??innerHeight)*.24,top:58,variant:11,structural:true,motionMode:'close'});
   await update();
   focusInput();
  }catch(error){$('error').textContent=error.message;}
