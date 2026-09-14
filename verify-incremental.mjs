@@ -3,6 +3,7 @@ import test from 'node:test';
 import {FoldRenderer} from './web/renderer.js';
 import {NativeRenderer} from './web/native-renderer.js';
 import {relaySchedule} from './web/structure.js';
+import {textThrough} from './web/playback-control.js';
 
 function renderer(items=[]){return {items,duration:.35,stagger:.07,make:segment=>({text:segment}),layout(){this.layouts=(this.layouts??0)+1;},prune(){}};}
 
@@ -27,6 +28,12 @@ test('the animation frontier advances through a long paste without starting the 
  const frontier=NativeRenderer.prototype.animationFrontier.call(view,20.5);
  assert.ok(frontier.sourceIndex>0&&frontier.sourceIndex<20);
  assert.ok(r.items.at(-1).born>50);
+});
+
+test('backspace cutoff keeps the animating character and discards every queued character after it',()=>{
+ const items=[...'文字禍を読む'].map(segment=>({segment}));
+ assert.equal(textThrough(items,2),'文字禍');
+ assert.equal(textThrough(items,4),'文字禍を読');
 });
 
 test('slow generation cannot leave queued entry times in the past',async()=>{

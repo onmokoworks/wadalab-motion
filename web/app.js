@@ -1,6 +1,7 @@
 import {NativeRenderer} from './native-renderer.js';
 import {loadSourceEngine} from './source-engine.js';
 import {deletionDelays,removedIndices} from './deletion-schedule.js';
+import {textThrough} from './playback-control.js';
 
 const $=id=>document.getElementById(id);
 const segmenter=new Intl.Segmenter('ja',{granularity:'grapheme'});
@@ -61,6 +62,14 @@ function syncViewport(){
 $('input').addEventListener('compositionstart',()=>{composing=true;++token;});
 $('input').addEventListener('compositionend',()=>{composing=false;update();});
 $('input').addEventListener('input',event=>{if(!composing)update({bulkHint:event.inputType==='insertFromPaste'||event.inputType==='insertFromDrop'});});
+$('input').addEventListener('keydown',event=>{
+ if(event.key!=='Backspace'||composing||!bulkPlayback||!renderer)return;
+ const frontier=renderer.animationFrontier(clock);if(!frontier)return;
+ event.preventDefault();++token;updating=false;bulkPlayback=false;playbackScrollTarget=$('stage').scrollTop;
+ const text=textThrough(renderer.items,frontier.sourceIndex);
+ renderer.items=renderer.items.slice(0,frontier.sourceIndex+1);renderer.layout();renderer.prune();renderer.dirty=true;
+ $('input').value=text;$('input').setSelectionRange(text.length,text.length);$('error').textContent='';updateCaret();
+});
 $('input').addEventListener('focus',()=>{inputFocused=true;});
 $('input').addEventListener('blur',()=>{inputFocused=false;document.body.classList.remove('waiting');});
 
