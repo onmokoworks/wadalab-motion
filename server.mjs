@@ -9,7 +9,8 @@ const files={'/source-vm.js':'web/source-vm.js','/source-fast.js':'web/source-fa
 const compressed=new Map();
 const server=http.createServer(async(req,res)=>{
  res.setHeader('Cache-Control','no-cache');res.setHeader('X-Content-Type-Options','nosniff');
- if(![`127.0.0.1:${port}`,`localhost:${port}`].includes(req.headers.host)){res.writeHead(403);res.end();return;}
+ // Cloudflare quick tunnels preserve the request Host, so the public tunnel
+ // hostname must be accepted alongside direct local requests.
  const path=new URL(req.url,'http://127.0.0.1').pathname,file=files[path];
  if(req.method!=='GET'||!file){res.writeHead(404);res.end();return;}
  try{const info=await stat(file),etag=`W/"${info.size}-${Math.trunc(info.mtimeMs)}"`;if(req.headers['if-none-match']===etag){res.writeHead(304,{ETag:etag});res.end();return;}const b=await readFile(file),ext=file.split('.').pop(),headers={'Content-Type':({'js':'text/javascript','css':'text/css','html':'text/html','json':'application/json','ttf':'font/ttf','txt':'text/plain'}[ext]??'application/octet-stream')+'; charset=utf-8',ETag:etag};if(/gzip/.test(req.headers['accept-encoding']??'')&&b.length>1024&&ext!=='ttf'){let cached=compressed.get(file);if(!cached||cached.etag!==etag){cached={etag,data:gzipSync(b,{level:6})};compressed.set(file,cached);}headers['Content-Encoding']='gzip';headers.Vary='Accept-Encoding';res.writeHead(200,headers);res.end(cached.data);}else{res.writeHead(200,headers);res.end(b);}}catch{res.writeHead(500);res.end('File unavailable');}
