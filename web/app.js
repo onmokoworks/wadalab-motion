@@ -6,7 +6,7 @@ import {textThrough} from './playback-control.js';
 const $=id=>document.getElementById(id);
 const segmenter=new Intl.Segmenter('ja',{granularity:'grapheme'});
 const segments=text=>[...segmenter.segment(text)].map(entry=>entry.segment);
-let engine,renderer,token=0,composing=false,clock=0,lastFrame=0,inputFocused=false,viewportFrame=0,bulkPlayback=false,updating=false,playbackScrollTarget=0;
+let engine,renderer,token=0,composing=false,clock=0,lastFrame=0,viewportFrame=0,bulkPlayback=false,updating=false,playbackScrollTarget=0;
 
 function fontSize(){return innerWidth<600?72:112;}
 
@@ -70,8 +70,7 @@ $('input').addEventListener('keydown',event=>{
  renderer.items=renderer.items.slice(0,frontier.sourceIndex+1);renderer.layout();renderer.prune();renderer.dirty=true;
  $('input').value=text;$('input').setSelectionRange(text.length,text.length);$('error').textContent='';updateCaret();
 });
-$('input').addEventListener('focus',()=>{inputFocused=true;});
-$('input').addEventListener('blur',()=>{inputFocused=false;document.body.classList.remove('waiting');});
+$('input').addEventListener('blur',()=>{document.body.classList.remove('waiting');});
 
 function focusInput(){if(!$('license').open)$('input').focus({preventScroll:true});}
 document.addEventListener('click',event=>{if(event.target.closest('button,dialog'))return;event.preventDefault();focusInput();});
@@ -115,7 +114,7 @@ function frame(now){
   if(Math.abs(next-stage.scrollTop)>.05){stage.scrollTop=next;updateCaret();}
   if(!updating&&!renderer.isAnimating(clock))bulkPlayback=false;
  }
- document.body.classList.toggle('waiting',Boolean(renderer&&inputFocused&&!composing&&!renderer.isAnimating(clock)&&!$('license').open));
+ document.body.classList.toggle('waiting',Boolean(renderer&&document.activeElement===$('input')&&!composing&&!renderer.isAnimating(clock)&&!$('license').open));
  requestAnimationFrame(frame);
 }
 
