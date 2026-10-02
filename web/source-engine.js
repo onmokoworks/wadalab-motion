@@ -2,9 +2,10 @@ import {SourceVM,fromAST,list,array,sym} from './source-vm.js';
 import {installVectorMath} from './source-fast.js';
 import {clamp,smooth} from './fold-core.js';
 import {plan,posedPaths,relayPaths,relayProfile} from './structure.js';
+import {prepareAlphaMotion,alphaMotionPaths} from './alpha-motion.js';
 function fullwidthAlphanumericToAscii(text){const code=text.codePointAt(0);return text.length===1&&((code>=0xff10&&code<=0xff19)||(code>=0xff21&&code<=0xff3a)||(code>=0xff41&&code<=0xff5a))?String.fromCodePoint(code-0xfee0):text;}
 export class SourceEngine{
- constructor(program,glyphs,ascii={glyphs:[]}){this.vm=new SourceVM();this.vm.load(program);installVectorMath(this.vm);this.glyphs=new Map(glyphs);this.ascii=new Map(ascii.glyphs.map(row=>[row[0],{paths:row[1],advance:row[2]}]));this.definitions=new Map(glyphs.map(row=>[row[0],row[2]??null]));this.cache=new Map();}
+ constructor(program,glyphs,ascii={glyphs:[]},alpha={glyphs:[]}){this.vm=new SourceVM();this.vm.load(program);installVectorMath(this.vm);this.glyphs=new Map(glyphs);this.ascii=new Map(ascii.glyphs.map(row=>[row[0],{paths:row[1],advance:row[2]}]));this.alpha=new Map(alpha.glyphs.map(([character,paths,width,advance,dots])=>[character,prepareAlphaMotion(paths,width,dots)]));this.definitions=new Map(glyphs.map(row=>[row[0],row[2]??null]));this.cache=new Map();}
  resolve(text){const ascii=fullwidthAlphanumericToAscii(text);if(this.ascii.has(ascii))return ascii;if(this.ascii.has(text)||this.glyphs.has(text))return text;return null;}
  make(text,rule=10){const cacheKey=rule+':'+text;if(this.cache.has(cacheKey))return this.cache.get(cacheKey);const key=this.resolve(text);if(!key)throw Error(`原典に未収録：${text}`);if(this.ascii.has(key)){const {paths,advance}=this.ascii.get(key),wide=text!==key,restEntries=paths.map((commands,stroke)=>({stroke,d:commandsToD(commands)})),strokes=paths.map((commands,id)=>({id,type:'outline',ids:[],links:[],motionPath:commandPoints(commands)})),graph={nodes:[],edges:[],components:[],width:256,height:256},strategy={graph,parts:[],anchors:[],notice:null};const g={text,sourceCharacter:key,sourceDefinition:'TrueType outline',skeleton:null,points:[],strokes,strategy,outlineOnly:true,roundStrokes:new Set(),arcUnfoldPlans:new Map(),release:0,advance:wide?1:advance/400,pixelFontSize:400,centerX:wide?.75:.5,centerY:-.4,pointBindings:[],restEntries,rest:restEntries.map(entry=>entry.d)};this.cache.set(cacheKey,g);return g;}const skeleton=fromAST(this.glyphs.get(key)),points=array(skeleton.a).map((p,id)=>({id,x:p.a,y:p.d.a,edges:[]}));
  const strokes=array(skeleton.d.a).map((s,id)=>{const ids=array(s.d.a),attrs=array(s.d.d),links=array(attrs.find(p=>p.a===sym('link'))?.d);for(const i of new Set([...ids,...links]))points[i].edges.push(id);return {id,type:s.a.s,ids,links};});
@@ -100,6 +101,7 @@ export class SourceEngine{
  }
 
  closeLoopPaths(g,amount){
+  const alphabet=this.alpha.get(g.sourceCharacter);if(alphabet)return alphaMotionPaths(alphabet,amount);
   const progress=clamp(1-amount),straight=g.straightFoldProfile??=buildStraightFoldProfile(g);if(straight.enabled)return straightFoldGeometry(g,straight,progress);return g.strokes.map(stroke=>{const closing=g.closingStrokes.has(stroke.id),local=closing?clamp((progress-.55)/.45):progress,pivot=(g.junctionPlans.get(stroke.id)?.pivot)??stroke.motionPath[0],path=strokeGeometry(g,stroke.id,local,pivot,stroke.motionPath,{curl:g.roundStrokes.has(stroke.id)});return {stroke:stroke.id,order:0,pivot:{...pivot},fixed:false,path};});
  }
 
@@ -216,5 +218,5 @@ export function sourceGraph(points,strokes){
 
 let engine;
 async function fetchJson(url){let last;for(let attempt=0;attempt<3;attempt++){try{const response=await fetch(url);if(!response.ok)throw Error(`${response.status} ${response.statusText}`);return await response.json();}catch(error){last=error;if(attempt<2)await new Promise(resolve=>setTimeout(resolve,150*2**attempt));}}throw Error(`原典データを読み込めません：${url}（${last?.message??'通信エラー'}）`);}
-export async function loadSourceEngine(){if(engine)return engine;const [program,glyphs,ascii]=await Promise.all(['/source-program.json','/source-glyphs.json','/font/ascii-outlines.json'].map(fetchJson));return engine=new SourceEngine(program,glyphs,ascii);}
+export async function loadSourceEngine(){if(engine)return engine;const [program,glyphs,ascii,alpha]=await Promise.all(['/source-program.json','/source-glyphs.json','/font/ascii-outlines.json','/font/alpha-centerlines.json'].map(fetchJson));return engine=new SourceEngine(program,glyphs,ascii,alpha);}
 export const getSourceEngine=()=>engine;
