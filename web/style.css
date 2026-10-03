@@ -26,10 +26,11 @@ dialog h1{margin:0 0 24px;font:16px/1.8 Wadalab,sans-serif}
 .repository svg{width:14px;height:14px;flex:none}
 .repository span{text-decoration:underline;text-underline-offset:3px}
 .license-summary{margin-bottom:24px}
-.about-section{margin:24px 0;padding-left:16px;border-left:2px solid #ccc}
+.about-content{margin:16px 0 0 5px;padding-left:16px;border-left:2px solid #ccc}
+.about-section{margin:0 0 24px}
 .license-summary .about-section h2{margin-top:0}
 .about-section p:last-child{margin-bottom:0}
-.about-note{padding-left:18px}
+.about-note{margin-bottom:0}
 .license-summary h2,.license-original h2{margin:24px 0 8px;font-size:14px;font-weight:normal}
 .license-summary p{margin:0 0 12px}
 .license-summary a{color:inherit}
