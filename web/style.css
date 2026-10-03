@@ -22,5 +22,10 @@ dialog::backdrop{background:rgb(255 255 255/.8)}
 dialog h1{margin:0 0 24px;font:16px Arial,sans-serif}
 .repository{margin:0 0 24px;font:12px/1.7 Arial,sans-serif;overflow-wrap:anywhere}
 .repository a{color:inherit}
+.license-summary,details{font:12px/1.8 Arial,sans-serif}
+.license-summary h2{margin:24px 0 8px;font-size:13px;font-weight:normal}
+.license-summary p{margin:0 0 12px}
+.license-summary a{color:inherit}
+summary{cursor:pointer}
 #close{position:absolute;top:12px;right:12px;font-size:24px}
 pre{white-space:pre-wrap;overflow-wrap:anywhere;font:12px/1.7 Arial,sans-serif}
