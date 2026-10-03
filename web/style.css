@@ -22,7 +22,9 @@ dialog{width:min(650px,calc(100vw - 40px));max-height:80dvh;padding:28px;border:
 dialog::backdrop{background:rgb(255 255 255/.8)}
 dialog h1{margin:0 0 24px;font:16px/1.8 Wadalab,sans-serif}
 .repository{margin:0 0 24px;overflow-wrap:anywhere}
-.repository a{color:inherit}
+.repository a{display:inline-flex;align-items:center;gap:7px;color:inherit;text-decoration:none}
+.repository svg{width:14px;height:14px;flex:none}
+.repository span{text-decoration:underline;text-underline-offset:3px}
 .license-summary{margin-bottom:24px}
 .license-summary h2,.license-original h2{margin:24px 0 8px;font-size:14px;font-weight:normal}
 .license-summary p{margin:0 0 12px}
