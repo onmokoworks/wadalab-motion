@@ -18,7 +18,7 @@ export class SourceEngine{
  // from sweeping sideways merely because its endpoints are vertically aligned;
  // the shorter branches articulate around it instead.
  if(rule>=10){const trunk=plan(graph,4),branching=new Set(graph.components.filter(ids=>ids.some(id=>graph.nodes[id].edges.length>=3)).flat());for(const part of strategy.parts){const edge=graph.edges[part.edge];if(branching.has(edge.a)&&branching.has(edge.b)&&trunk.parts[part.edge].fixed)part.fixed=true;}}
- const roundStrokes=new Set(strokes.filter(isRoundStroke).map(s=>s.id)),arcUnfoldPlans=new Map(strokes.filter(stroke=>!roundStrokes.has(stroke.id)).map(stroke=>[stroke.id,openArcPlan(stroke.motionPath)]).filter(([,value])=>value));
+ const roundStrokes=new Set(strokes.filter(isRoundStroke).map(s=>s.id)),arcUnfoldPlans=new Map(strokes.filter(stroke=>!roundStrokes.has(stroke.id)).map(stroke=>[stroke.id,openArcPlan(stroke.motionPath)??compoundCurvePlan(stroke)]).filter(([,value])=>value));
  const g={text,sourceCharacter:key,sourceDefinition:this.definitions.get(key),skeleton,points,strokes,strategy,outlineOnly:strokes.length>0&&strokes.every(stroke=>stroke.type==='outline'),roundStrokes,arcUnfoldPlans,release:relayProfile(strategy).release,advance:1,pixelFontSize:400,centerX:.5,centerY:-.4};
  g.junctionPlans=buildJunctionPlans(graph,strokes);g.tangentPlans=buildTangentPlans(strokes);g.closingStrokes=buildClosingStrokes(graph);g.carefulClosePlans=buildCarefulClosePlans(strokes,g.tangentPlans,g.closingStrokes);
  g.pointBindings=points.map(point=>bindPoint(strategy,point));
@@ -134,6 +134,18 @@ function isRoundStroke(stroke){
 const angleDelta=(a,b)=>Math.atan2(Math.sin(a-b),Math.cos(a-b));
 function straightEndRun(path,reverse=false){const points=reverse?[...path].reverse():path,angles=points.slice(1).map((point,i)=>Math.atan2(point.y-points[i].y,point.x-points[i].x)),base=angles[0];let segments=1,length=Math.hypot(points[1].x-points[0].x,points[1].y-points[0].y);for(let i=1;i<angles.length;i++){if(Math.abs(angleDelta(angles[i],base))>Math.PI/15)break;segments=i+1;length+=Math.hypot(points[i+1].x-points[i].x,points[i+1].y-points[i].y);}return {reverse,segments,length};}
 function openArcPlan(path){if(path.length<8)return null;const angles=path.slice(1).map((point,i)=>Math.atan2(point.y-path[i].y,point.x-path[i].x));let signed=0,absolute=0;for(let i=1;i<angles.length;i++){const turn=angleDelta(angles[i],angles[i-1]);signed+=turn;absolute+=Math.abs(turn);}const length=path.slice(1).reduce((sum,point,i)=>sum+Math.hypot(point.x-path[i].x,point.y-path[i].y),0),chord=Math.hypot(path.at(-1).x-path[0].x,path.at(-1).y-path[0].y);if(Math.abs(signed)<Math.PI*.42||Math.abs(signed)/(absolute||1)<.78||chord/(length||1)<.18)return null;const candidates=[straightEndRun(path),straightEndRun(path,true)].sort((a,b)=>b.length-a.length),best=candidates[0];return best.length/length>=.14&&best.segments>=3?best:null;}
+// A long kana curve may reverse its turn or loop back near its start.
+// Preserve those bends instead of requiring a single-direction open arc.
+function compoundCurvePlan(stroke){
+ if(stroke.type!=='hira-long')return null;
+ const path=stroke.motionPath;
+ if(path.length<8)return null;
+ const angles=path.slice(1).map((point,i)=>Math.atan2(point.y-path[i].y,point.x-path[i].x));
+ let turn=0;for(let i=1;i<angles.length;i++)turn+=Math.abs(angleDelta(angles[i],angles[i-1]));
+ if(turn<Math.PI*.75)return null;
+ const best=[straightEndRun(path),straightEndRun(path,true)].sort((a,b)=>b.length-a.length)[0];
+ return {reverse:best.reverse,segments:Math.min(best.segments,Math.max(1,Math.floor(angles.length*.35)))};
+}
 function unfoldOpenArc(source,plan,progress){if(progress>=.999999)return source.map(point=>({...point}));const points=plan.reverse?[...source].reverse():source,angles=points.slice(1).map((point,i)=>Math.atan2(point.y-points[i].y,point.x-points[i].x)),out=[{...points[0]}],phase=clamp((progress-.10)/.78),tail=Math.max(1,angles.length-plan.segments);let angle=angles[0];for(let i=0;i<angles.length;i++){if(i<plan.segments)angle=angles[i];else{const distance=(i-plan.segments)/tail,local=smooth(clamp(phase*1.25-distance*.25));angle+=angleDelta(angles[i],angles[i-1])*local;}const length=Math.hypot(points[i+1].x-points[i].x,points[i+1].y-points[i].y),previous=out.at(-1);out.push({x:previous.x+Math.cos(angle)*length,y:previous.y+Math.sin(angle)*length});}return plan.reverse?out.reverse():out;}
 function strokeGeometry(g,strokeId,progress,pivot,source=g.strokes[strokeId].motionPath,{curl=false,arc=true}={}){let path=source;if(curl)path=unfoldOpenArc(source,{reverse:false,segments:1},progress);else if(arc){const plan=g.arcUnfoldPlans.get(strokeId);if(plan)path=unfoldOpenArc(source,plan,progress);}const growth=curl?smooth(progress):smooth(clamp(progress/.42));return path.map(point=>({x:pivot.x+(point.x-pivot.x)*growth,y:pivot.y+(point.y-pivot.y)*growth}));}
 function pathLength(path){return path.slice(1).reduce((sum,point,i)=>sum+Math.hypot(point.x-path[i].x,point.y-path[i].y),0);}
