@@ -65,7 +65,7 @@ def export(paths):
     valid = inside(vertices, rings) & (radius > .65)
     adjacency = {}
     candidates = [(a, b) for a, b in voronoi.ridge_vertices if a >= 0 and b >= 0 and valid[a] and valid[b]]
-    middle_inside = inside(np.array([(vertices[a]+vertices[b])/2 for a, b in candidates]), rings)
+    middle_inside = inside(np.array([(vertices[a]+vertices[b])/2 for a, b in candidates]).reshape(-1, 2), rings)
     for (a, b), keep in zip(candidates, middle_inside):
         if not keep:
             continue
@@ -144,8 +144,9 @@ def export(paths):
     dots = []
     for ring in rings:
         size = np.ptp(ring, axis=0)
-        if max(size) < width*3.5 and min(size)/max(size) > .85:
-            center = (ring.min(axis=0)+ring.max(axis=0))/2
+        center = (ring.min(axis=0)+ring.max(axis=0))/2
+        if max(size) < 80 and min(size)/max(size) > .85 and inside(center.reshape(1, 2), rings)[0]:
+            out = [path for path in out if not inside(np.array(path), [ring]).all()]
             out.append([center.round(4).tolist(), (center+np.array([.01, 0])).round(4).tolist()])
             dots.append([len(out)-1, round(float(np.mean(size)), 4)])
     return out, round(width, 4), dots
@@ -153,11 +154,11 @@ def export(paths):
 data = json.loads(SOURCE.read_text(encoding='utf-8'))
 rows = []
 for character, paths, advance in data['glyphs']:
-    if not character.isascii() or not character.isalpha():
+    if not character.isascii() or not paths:
         continue
     centerlines, width, dots = export(paths)
     if not centerlines:
         raise ValueError(f'No centerlines for {character}')
     rows.append([character, centerlines, width, advance, dots])
 (ROOT / 'web/font/alpha-centerlines.json').write_text(json.dumps({'source': 'TTF vector boundary Voronoi medial routes', 'glyphs': rows}, separators=(',', ':')), encoding='utf-8')
-print(json.dumps({'letters': len(rows), 'paths': sum(len(row[1]) for row in rows), 'raster': False}))
+print(json.dumps({'characters': len(rows), 'paths': sum(len(row[1]) for row in rows), 'raster': False}))

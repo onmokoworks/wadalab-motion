@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import {prepareAlphaMotion,alphaMotionPaths} from './web/alpha-motion.js';
 const data=JSON.parse(fs.readFileSync('./web/font/alpha-centerlines.json'));
-assert.equal(data.glyphs.length,52);
+assert.equal(data.glyphs.length,94);
 let curves=0;
 for(const [character,paths,width,advance,dots] of data.glyphs){
  const rig=prepareAlphaMotion(paths,width,dots);
@@ -21,4 +21,4 @@ for(const [character,paths,width,advance,dots] of data.glyphs){
   }
  }
 }
-console.log(JSON.stringify({letters:52,curvedSamples:curves,zeroStart:true,finite:true,finalPaths:true}));
+console.log(JSON.stringify({characters:data.glyphs.length,curvedSamples:curves,zeroStart:true,finite:true,finalPaths:true}));
