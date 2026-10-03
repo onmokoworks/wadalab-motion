@@ -10,7 +10,7 @@ body{font-family:Arial,sans-serif}
 button{font:inherit;color:inherit;background:#fff;border:0;cursor:pointer}
 button:disabled{opacity:.35;cursor:wait}
 button:focus-visible{outline:1px solid #777;outline-offset:4px}
-#info{position:absolute;z-index:2;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));width:36px;height:36px;padding:0;color:#777;font:18px Arial,sans-serif}
+#info{position:absolute;z-index:2;top:max(12px,env(safe-area-inset-top));right:max(12px,env(safe-area-inset-right));width:36px;height:36px;padding:0;color:#777;font:14px Arial,sans-serif}
 #paste{position:absolute;z-index:2;top:max(15px,env(safe-area-inset-top));right:max(56px,calc(env(safe-area-inset-right) + 44px));padding:5px;color:#777;font:12px Arial,sans-serif}
 #caret{position:fixed;z-index:1;top:0;left:0;width:2px;background:#111;transform-origin:top left;pointer-events:none;visibility:hidden}
 .waiting #caret{visibility:visible;animation:blink 1s steps(1,end) infinite}
