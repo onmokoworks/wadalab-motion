@@ -1,0 +1,15 @@
+{
+  "name": "wadalab-motion",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "和田研フォントの文字データとパスモーションを他の環境で使うためのライブラリ",
+  "exports": {
+    ".": "./web/motion-library.js",
+    "./data/program.json": "./web/source-program.json",
+    "./data/glyphs.json": "./web/source-glyphs.json",
+    "./data/ascii.json": "./web/font/ascii-outlines.json",
+    "./data/alpha.json": "./web/font/alpha-centerlines.json"
+  },
+  "scripts": {"test": "node verify-library.mjs"}
+}

@@ -1,18 +1,19 @@
 import {LineRenderer} from './renderer.js';
 import {getSourceEngine} from './source-engine.js';
 import {clamp,smooth} from './fold-core.js';
+import {prepareGlyph,dotGeometry} from './motion-library.js';
 
 const NS='http://www.w3.org/2000/svg';
 const svg=tag=>document.createElementNS(NS,tag);
 const pathD=path=>path.map((p,i)=>`${i?'L':'M'}${p.x} ${p.y}`).join(' ');
 // Keep the full horizontal span: unfold upward from a collapsed lower edge.
 // Uniform radius growth makes tiny dots resemble an opacity fade.
-const dotD=piece=>{const {x,y}=piece.path[0],r=piece.dotWidth*.5,ry=r*piece.dotScale,cy=y+r-ry;if(ry<=0)return '';return `M${x+r} ${cy}A${r} ${ry} 0 1 1 ${x-r} ${cy}A${r} ${ry} 0 1 1 ${x+r} ${cy}Z`;};
+const dotD=piece=>{const {center:{x,y},radiusX:r,radiusY:ry}=dotGeometry(piece);if(ry<=0)return '';return `M${x+r} ${y}A${r} ${ry} 0 1 1 ${x-r} ${y}A${r} ${ry} 0 1 1 ${x+r} ${y}Z`;};
 let rendererId=0;
 
 export class NativeRenderer extends LineRenderer{
  constructor(...args){super(...args);this.rendererId=++rendererId;this.departures=[];this.departureElements=new Map();this.departureSerial=0;this.departureFloor=0;}
- make(text){const engine=getSourceEngine(),glyph=engine.make(text,this.variant),alpha=engine.alpha.get(glyph.sourceCharacter);if(alpha){glyph.outlineOnly=false;glyph.lineWidth=alpha.width;glyph.alphaMotion=true;}if(text==='：'){glyph.outlineOnly=false;glyph.colonDots=glyph.strokes.map(stroke=>{const points=stroke.ids.map(id=>glyph.points[id]),xs=points.map(p=>p.x),ys=points.map(p=>p.y);return {stroke:stroke.id,x:(Math.min(...xs)+Math.max(...xs))/2,y:(Math.min(...ys)+Math.max(...ys))/2,width:Math.max(...xs)-Math.min(...xs)};});}this.cache.set(text,glyph);return glyph;}
+ make(text){const glyph=prepareGlyph(getSourceEngine(),text,this.variant);this.cache.set(text,glyph);return glyph;}
 
  queueDepartures(rows,now){
   const placedBySource=new Map((this.placed??[]).map(item=>[item.sourceIndex,item]));
