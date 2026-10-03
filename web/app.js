@@ -4,6 +4,22 @@ import {deletionDelays,removedIndices} from './deletion-schedule.js';
 import {textThrough} from './playback-control.js';
 
 const $=id=>document.getElementById(id);
+// Original TTF vertices for ▸ (U+25B8) and ▾ (U+25BE), centered in SVG coordinates.
+const aboutClosed=[243,201,781,512,243,823],aboutOpen=[823,243,512,781,201,243];
+const about=document.querySelector('.license-summary'),aboutPath=about.querySelector('.about-marker path');
+let aboutShape=aboutClosed.slice(),aboutFrame=0;
+about.addEventListener('toggle',()=>{
+ cancelAnimationFrame(aboutFrame);
+ const from=aboutShape.slice(),to=about.open?aboutOpen:aboutClosed,start=performance.now();
+ const duration=matchMedia('(prefers-reduced-motion: reduce)').matches?0:180;
+ function frame(now){
+  const t=duration?Math.min(1,(now-start)/duration):1,p=t*t*(3-2*t);
+  aboutShape=from.map((value,index)=>value+(to[index]-value)*p);
+  aboutPath.setAttribute('d',`M${aboutShape[0]} ${aboutShape[1]}L${aboutShape[2]} ${aboutShape[3]}L${aboutShape[4]} ${aboutShape[5]}Z`);
+  if(t<1)aboutFrame=requestAnimationFrame(frame);
+ }
+ aboutFrame=requestAnimationFrame(frame);
+});
 const segmenter=new Intl.Segmenter('ja',{granularity:'grapheme'});
 const segments=text=>[...segmenter.segment(text)].map(entry=>entry.segment);
 let engine,renderer,token=0,composing=false,clock=0,lastFrame=0,viewportFrame=0,bulkPlayback=false,updating=false,playbackScrollTarget=0;
