@@ -5,11 +5,13 @@ import {clamp,smooth} from './fold-core.js';
 const NS='http://www.w3.org/2000/svg';
 const svg=tag=>document.createElementNS(NS,tag);
 const pathD=path=>path.map((p,i)=>`${i?'L':'M'}${p.x} ${p.y}`).join(' ');
+// A filled dot opens geometrically from zero area; its opacity stays at one.
+const dotD=piece=>{const {x,y}=piece.path[0],r=piece.dotWidth*.5*piece.dotScale;if(r<=0)return '';return `M${x+r} ${y}A${r} ${r} 0 1 1 ${x-r} ${y}A${r} ${r} 0 1 1 ${x+r} ${y}Z`;};
 let rendererId=0;
 
 export class NativeRenderer extends LineRenderer{
  constructor(...args){super(...args);this.rendererId=++rendererId;this.departures=[];this.departureElements=new Map();this.departureSerial=0;this.departureFloor=0;}
- make(text){const engine=getSourceEngine(),glyph=engine.make(text,this.variant),alpha=engine.alpha.get(glyph.sourceCharacter);if(alpha){glyph.outlineOnly=false;glyph.lineWidth=alpha.width;glyph.alphaMotion=true;}this.cache.set(text,glyph);return glyph;}
+ make(text){const engine=getSourceEngine(),glyph=engine.make(text,this.variant),alpha=engine.alpha.get(glyph.sourceCharacter);if(alpha){glyph.outlineOnly=false;glyph.lineWidth=alpha.width;glyph.alphaMotion=true;}if(text==='：'){glyph.outlineOnly=false;glyph.colonDots=glyph.strokes.map(stroke=>{const points=stroke.ids.map(id=>glyph.points[id]),xs=points.map(p=>p.x),ys=points.map(p=>p.y);return {stroke:stroke.id,x:(Math.min(...xs)+Math.max(...xs))/2,y:(Math.min(...ys)+Math.max(...ys))/2,width:Math.max(...xs)-Math.min(...xs)};});}this.cache.set(text,glyph);return glyph;}
 
  queueDepartures(rows,now){
   const placedBySource=new Map((this.placed??[]).map(item=>[item.sourceIndex,item]));
@@ -60,7 +62,7 @@ export class NativeRenderer extends LineRenderer{
   if(glyph.outlineOnly){this.drawOutlineEntry(entry,amount);entry.amount=amount;return;}
   const pieces=this.options.motionMode==='junction'?engine.junctionBranchPaths(glyph,amount):this.options.motionMode==='tangent'?engine.tangentRelayStrokePaths(glyph,amount):this.options.motionMode==='close'?engine.closeLoopPaths(glyph,amount):this.options.motionMode==='carefulClose'?engine.carefulClosePaths(glyph,amount):this.options.curveUnfold?engine.cPlus2StrokePaths(glyph,amount):this.options.roundTrim?engine.cPlusStrokePaths(glyph,amount):engine.motionStrokePaths(glyph,amount,this.options.relay),reveal=this.roundReveal(glyph,pieces,amount);
   while(entry.paths.length<pieces.length){const path=svg('path');path.setAttribute('pathLength','1');entry.group.append(path);entry.paths.push(path);}
-  pieces.forEach((piece,i)=>{const path=entry.paths[i],progress=reveal.get(i)??1,pathLength=piece.path.slice(1).reduce((sum,point,j)=>sum+Math.hypot(point.x-piece.path[j].x,point.y-piece.path[j].y),0);path.setAttribute('d',pathLength>.001?pathD(piece.path):'');if(piece.dotWidth){path.setAttribute('stroke-width',String(piece.dotWidth));path.setAttribute('opacity',String(piece.opacity));}else{path.removeAttribute('stroke-width');path.removeAttribute('opacity');}if(this.options.motionMode&&pathLength<16&&!piece.dotWidth)path.setAttribute('stroke-linecap','butt');else path.removeAttribute('stroke-linecap');if(progress>=.999){path.removeAttribute('stroke-dasharray');path.removeAttribute('stroke-dashoffset');}else{path.setAttribute('stroke-dasharray','1');path.setAttribute('stroke-dashoffset',String(1-progress));}});
+  pieces.forEach((piece,i)=>{const path=entry.paths[i],progress=piece.dotWidth?1:reveal.get(i)??1,pathLength=piece.path.slice(1).reduce((sum,point,j)=>sum+Math.hypot(point.x-piece.path[j].x,point.y-piece.path[j].y),0);path.setAttribute('d',piece.dotWidth?dotD(piece):pathLength>.001?pathD(piece.path):'');path.removeAttribute('opacity');path.removeAttribute('stroke-width');if(piece.dotWidth){path.setAttribute('fill','#111');path.setAttribute('stroke','none');}else{path.removeAttribute('fill');path.removeAttribute('stroke');}if(this.options.motionMode&&pathLength<16&&!piece.dotWidth)path.setAttribute('stroke-linecap','butt');else path.removeAttribute('stroke-linecap');if(progress>=.999){path.removeAttribute('stroke-dasharray');path.removeAttribute('stroke-dashoffset');}else{path.setAttribute('stroke-dasharray','1');path.setAttribute('stroke-dashoffset',String(1-progress));}});
   entry.paths.forEach((path,i)=>{if(i>=pieces.length)path.setAttribute('d','');});entry.amount=amount;
  }
 

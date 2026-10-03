@@ -63,5 +63,5 @@ export function alphaMotionPaths(rig, amount) {
     }
     posed.set(stroke.id, points);
   }
-  return rig.strokes.map(stroke => ({stroke:stroke.id, order:0, fixed:false, pivot:stroke.motionPath[0], path:posed.get(stroke.id),dotWidth:stroke.dotWidth,opacity:stroke.dotWidth?growth:1}));
+  return rig.strokes.map(stroke => ({stroke:stroke.id, order:0, fixed:false, pivot:stroke.motionPath[0], path:posed.get(stroke.id),dotWidth:stroke.dotWidth,dotScale:growth}));
 }

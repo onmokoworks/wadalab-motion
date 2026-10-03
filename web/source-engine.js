@@ -101,6 +101,7 @@ export class SourceEngine{
  }
 
  closeLoopPaths(g,amount){
+  if(g.colonDots){const dotScale=smooth(clamp((1-amount)/.58));return g.colonDots.map(dot=>({stroke:dot.stroke,order:0,fixed:false,path:[{x:dot.x,y:dot.y}],dotWidth:dot.width,dotScale}));}
   const alphabet=this.alpha.get(g.sourceCharacter);if(alphabet)return alphaMotionPaths(alphabet,amount);
   const progress=clamp(1-amount),straight=g.straightFoldProfile??=buildStraightFoldProfile(g);if(straight.enabled)return straightFoldGeometry(g,straight,progress);return g.strokes.map(stroke=>{const closing=g.closingStrokes.has(stroke.id),local=closing?clamp((progress-.55)/.45):progress,pivot=(g.junctionPlans.get(stroke.id)?.pivot)??stroke.motionPath[0],path=strokeGeometry(g,stroke.id,local,pivot,stroke.motionPath,{curl:g.roundStrokes.has(stroke.id)});return {stroke:stroke.id,order:0,pivot:{...pivot},fixed:false,path};});
  }
