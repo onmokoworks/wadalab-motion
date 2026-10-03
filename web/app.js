@@ -72,7 +72,19 @@ function keepPlaybackVisible(){
 function syncViewport(){
  const height=window.visualViewport?.height??innerHeight;
  document.documentElement.style.setProperty('--viewport-height',`${height}px`);
- cancelAnimationFrame(viewportFrame);viewportFrame=requestAnimationFrame(()=>{if(!renderer)return;renderer.options.fontSize=fontSize();renderer.options.bottomPad=height*.24;renderer.layout();keepActivityVisible();});
+ cancelAnimationFrame(viewportFrame);viewportFrame=requestAnimationFrame(()=>{
+  if(!renderer)return;
+  const stage=$('stage'),scroll=stage.scrollTop,oldWidth=renderer.width;
+  const anchor=renderer.placed.find(item=>item.y+item.size*.35>=scroll&&item.born<=clock);
+  const offset=anchor?anchor.y-scroll:0;
+  renderer.options.fontSize=fontSize();renderer.options.bottomPad=height*.24;renderer.layout();
+  if(renderer.width!==oldWidth){
+   const moved=anchor&&renderer.placed.find(item=>item.sourceIndex===anchor.sourceIndex);
+   stage.scrollTop=moved?Math.max(0,moved.y-offset):scroll;
+   playbackScrollTarget=stage.scrollTop;
+  }else if(!bulkPlayback&&document.activeElement===$('input'))keepActivityVisible();
+  updateCaret();renderer.dirty=true;
+ });
 }
 
 $('input').addEventListener('compositionstart',()=>{composing=true;++token;});
