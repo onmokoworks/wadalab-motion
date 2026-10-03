@@ -5,8 +5,9 @@ import {clamp,smooth} from './fold-core.js';
 const NS='http://www.w3.org/2000/svg';
 const svg=tag=>document.createElementNS(NS,tag);
 const pathD=path=>path.map((p,i)=>`${i?'L':'M'}${p.x} ${p.y}`).join(' ');
-// A filled dot opens geometrically from zero area; its opacity stays at one.
-const dotD=piece=>{const {x,y}=piece.path[0],r=piece.dotWidth*.5*piece.dotScale;if(r<=0)return '';return `M${x+r} ${y}A${r} ${r} 0 1 1 ${x-r} ${y}A${r} ${r} 0 1 1 ${x+r} ${y}Z`;};
+// Keep the full horizontal span: unfold upward from a collapsed lower edge.
+// Uniform radius growth makes tiny dots resemble an opacity fade.
+const dotD=piece=>{const {x,y}=piece.path[0],r=piece.dotWidth*.5,ry=r*piece.dotScale,cy=y+r-ry;if(ry<=0)return '';return `M${x+r} ${cy}A${r} ${ry} 0 1 1 ${x-r} ${cy}A${r} ${ry} 0 1 1 ${x+r} ${cy}Z`;};
 let rendererId=0;
 
 export class NativeRenderer extends LineRenderer{
