@@ -77,8 +77,10 @@ document.addEventListener('click',event=>{if(event.target.closest('button,dialog
 
 $('info').onclick=async()=>{
  $('license').showModal();
- try{const response=await fetch('/LICENSE.txt');if(!response.ok)throw Error();$('license-text').textContent=await response.text();}
- catch{$('license-text').textContent='ライセンスを読み込めませんでした。';}
+ await Promise.all([['project-license-text','/PROJECT-LICENSE.txt'],['license-text','/SOURCE-LICENSE.txt']].map(async([id,url])=>{
+  try{const response=await fetch(url);if(!response.ok)throw Error();$(id).textContent=await response.text();}
+  catch{$(id).textContent='ライセンスを読み込めませんでした。';}
+ }));
 };
 $('paste').onclick=async()=>{
  const button=$('paste');button.disabled=true;

@@ -20,4 +20,6 @@ node server.mjs
 
 ## ライセンス
 
-和田研の原典と同梱フォントの利用条件は、[原典のライセンス](web/SOURCE-LICENSE.txt)と[フォントのライセンス](web/font/LICENSE.txt)を参照してください。
+本プロジェクトで新たに作成したサイト・アニメーションのコードは[MITライセンス](LICENSE)で公開しています。
+
+和田研の原典、それを移植したコードと文字データ、同梱フォントには、それぞれの利用条件が適用されます。[原典のライセンス](web/SOURCE-LICENSE.txt)、[移植部分の出典](web/SOURCE-NOTICE.txt)、[フォントのライセンス](web/font/LICENSE.txt)を参照してください。
