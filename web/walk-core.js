@@ -34,5 +34,8 @@ export function leadingWeights(strokes){
  const points=strokes.flatMap(stroke=>stroke.points),left=Math.min(...points.map(p=>p.x)),right=Math.max(...points.map(p=>p.x));
  const origins=strokes.flatMap((stroke,s)=>stroke.points.filter((p,i)=>weights[s][i]>.999999).map(p=>p.x));
  const reach=Math.max(1,(right-left)*.16);
- return strokes.map(stroke=>stroke.points.map(p=>Math.max(0,...origins.map(x=>smooth(1-Math.abs(p.x-x)/reach)))));
+ // Keep everything ahead of a leading vertex moving with it. A local bump
+ // would pull the apex past the stationary right side and turn circles inside out.
+ // A monotone field preserves horizontal order and all shared vertices.
+ return strokes.map(stroke=>stroke.points.map(p=>Math.max(0,...origins.map(x=>smooth((p.x-x+reach)/reach)))));
 }
