@@ -38,9 +38,9 @@ try{
  }
  resize();addEventListener('resize',resize);
  function draw(now){
-  const {height,scale}=size,elapsed=(now-started)/520,step=200;
+  const {width,height,scale}=size,elapsed=(now-started)/520,step=200,drift=(now-started)/1000*width*.02;
   rows.forEach((row,r)=>{
-   const time=elapsed*row.speed,cycle=Math.floor(time),rowScale=scale*row.multiplier,offset=(cycle*step*rowScale)%row.period,centerY=row.centerY;
+   const time=elapsed*row.speed,cycle=Math.floor(time),rowScale=scale*row.multiplier,offset=(cycle*step*rowScale+drift)%row.period,centerY=row.centerY;
    row.strokes.forEach((stroke,s)=>{
     const path=stroke.points.map((point,i)=>walkingPoint(point,{lead:stroke.weights[i],step,time:Math.max(0,time-stroke.delay)}));
     row.copies.forEach((nodes,copy)=>nodes[s].setAttribute('d',path.map((p,i)=>`${i?'L':'M'}${(p.x-row.left-cycle*step)*rowScale+offset+(copy-1)*row.period},${centerY+(p.y-(row.top+row.bottom)/2)*rowScale}`).join(' ')));
