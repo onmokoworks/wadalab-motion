@@ -20,7 +20,7 @@ try{
  function resize(){size={width:innerWidth,height:innerHeight,scale:Math.min(innerWidth*.45/(right-left),innerHeight*.23/(bottom-top))};svg.setAttribute('viewBox',`0 0 ${size.width} ${size.height}`);}
  resize();addEventListener('resize',resize);
  function draw(now){
-  const {width,height,scale}=size,step=(right-left)*.16,travel=step*scale,cycles=Math.ceil((width+(right-left)*scale+travel)/travel),time=((now-started)/1050)%cycles,origin=-(right-left)*scale-travel;
+  const {width,height,scale}=size,step=(right-left)*.16,travel=step*scale,cycles=Math.ceil((width+(right-left)*scale+travel)/travel),time=((now-started)/520)%cycles,origin=-(right-left)*scale-travel;
   for(const stroke of strokes){stroke.node.setAttribute('stroke-width',stroke.width*scale);stroke.node.setAttribute('d',stroke.points.map((point,i)=>{const p=walkingPoint(point,{left,right,step,time});return `${i?'L':'M'}${origin+(p.x-left)*scale},${height/2+(p.y-(top+bottom)/2)*scale}`;}).join(' '));}requestAnimationFrame(draw);
  }requestAnimationFrame(draw);
 }catch(reason){document.querySelector('#error').textContent=`読み込みに失敗しました：${reason.message}`;}
