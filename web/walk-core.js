@@ -3,6 +3,18 @@ export function coast(velocity,seconds){
  const decay=Math.exp(-seconds/1.8);
  return {velocity:velocity*decay,distance:velocity*1.8*(1-decay)};
 }
+// Separate the four diagonal arms at the two central junctions. Extend only
+// their horizontal connectors; the arms themselves undergo rigid translation.
+export function crossRig(strokes){
+ const bridge=strokes.find(stroke=>stroke.points.length===2&&Math.abs(stroke.points[0].x-stroke.points[1].x)<1e-5);
+ if(!bridge)return {strokes,weights:leadingWeights(strokes)};
+ const axis=bridge.points[0].x,weights=strokes.map(stroke=>{
+  const side=stroke===bridge ? .5 : stroke.points.reduce((sum,p)=>sum+p.x-axis,0)>0 ? 1 : 0;
+  return stroke.points.map(()=>side);
+ });
+ const connectors=bridge.points.map(point=>({kind:'line',points:[{...point},{...point}]}));
+ return {strokes:[...strokes,...connectors],weights:[...weights,[0,1],[0,1]]};
+}
 // First extend the front while the rear stays planted, then pull the rear in.
 // The front finishes before catch-up starts. Each cycle restores the glyph.
 export function walkingPoint(point,{lead=0,step,time}){

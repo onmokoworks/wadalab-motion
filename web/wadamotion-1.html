@@ -5,7 +5,7 @@
 <a href="/workspace/" aria-label="workspaceへ戻る">←</a><svg role="img" aria-label="TEST、onmk.work、MOTION、Wadalab fontの下にThe quick brown fox jumps over the lazy dogを単語ごとに並べた歩行アニメーション"></svg><p id="error" role="status"></p>
 <script type="module">
 import {createMotionLibrary} from '/motion-library.js';
-import {walkingPoint,leadingWeights,coast} from '/walk-core.js';
+import {walkingPoint,leadingWeights,coast,crossRig} from '/walk-core.js';
 const svg=document.querySelector('svg');
 svg.style.touchAction='pan-y';svg.style.cursor='grab';
 let manualOffset=0,velocity=0,drag=null,driftOffset=0,lastFrame=performance.now();
@@ -29,7 +29,9 @@ try{
    const frame=library.sample(character,1);if(frame.kind!=='paths')throw new Error('文字の線データがありません');
    frame.strokes=frame.strokes.map(stroke=>stroke.points?stroke:{...stroke,points:Array.from({length:25},(_,i)=>({x:stroke.center.x+Math.cos(i/24*Math.PI*2)*stroke.radiusX,y:stroke.center.y+Math.sin(i/24*Math.PI*2)*stroke.radiusY}))});
    const xs=frame.strokes.flatMap(stroke=>stroke.points.map(p=>p.x)),minimum=compact?Math.min(...xs):0;
-   const weights=leadingWeights(frame.strokes,'MWwxX'.includes(character)?{originX:(Math.min(...xs)+Math.max(...xs))/2}:{});
+   const cross='xX'.includes(character)?crossRig(frame.strokes):null;
+   const weights=cross?cross.weights:leadingWeights(frame.strokes,'MWw'.includes(character)?{originX:(Math.min(...xs)+Math.max(...xs))/2}:{});
+   if(cross)frame.strokes=cross.strokes;
    frame.strokes.forEach((stroke,s)=>strokes.push({weights:weights[s],delay:(text.length-1-index)*.18,points:stroke.points.map(p=>({x:p.x-minimum+advance,y:p.y}))}));advance+=compact?Math.max(...xs)-minimum+8:frame.advance;index++;
   }
   const points=strokes.flatMap(s=>s.points);
