@@ -2,7 +2,7 @@
 <html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>Wadamotion-1 — TEST</title><link rel="icon" href="data:,">
 <style>html,body{margin:0;width:100%;height:100%;background:#fff;overflow:hidden;color:#111}svg{display:block;width:100%;height:100%}path{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}a{position:absolute;top:18px;left:20px;color:#999;text-decoration:none;font:14px monospace}#error{position:absolute;bottom:20px;left:20px;font:14px monospace}</style>
-<a href="/workspace/" aria-label="workspaceへ戻る">←</a><svg role="img" aria-label="TESTが右側から伸びて歩くアニメーション"></svg><p id="error" role="status"></p>
+<a href="/workspace/" aria-label="workspaceへ戻る">←</a><svg role="img" aria-label="TEST、MOTION、Wadalab fontが一文字ずつ歩いてループするアニメーション"></svg><p id="error" role="status"></p>
 <script type="module">
 import {createMotionLibrary} from '/motion-library.js';
 import {walkingPoint,leadingWeights} from '/walk-core.js';
@@ -10,19 +10,38 @@ const svg=document.querySelector('svg');
 try{
  const names={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
  const data=Object.fromEntries(await Promise.all(Object.entries(names).map(async([name,path])=>{const response=await fetch(new URL(path,new URL('/motion-library.js',location.href)));if(!response.ok)throw new Error(response.status);return [name,await response.json()];})));
- const library=createMotionLibrary(data),strokes=[];let advance=0,index=0;
- for(const character of 'TEST'){
-  const frame=library.sample(character,1);if(frame.kind!=='paths')throw new Error('文字の線データがありません');
-  const weights=leadingWeights(frame.strokes);
-  frame.strokes.forEach((stroke,s)=>{const node=document.createElementNS('http://www.w3.org/2000/svg','path');svg.append(node);strokes.push({node,width:stroke.width,weights:weights[s],delay:(3-index)*.18,points:stroke.points.map(p=>({x:p.x+advance,y:p.y}))});});advance+=frame.advance;index++;
+ const library=createMotionLibrary(data),rows=[];
+ for(const [text,multiplier] of [['TEST',1],['MOTION',1],['Wadalab font',2]]){
+  const strokes=[];let advance=0,index=0;
+  for(const character of text){
+   if(character===' '){advance+=220;index++;continue;}
+   const frame=library.sample(character,1);if(frame.kind!=='paths')throw new Error('文字の線データがありません');
+   const weights=leadingWeights(frame.strokes);
+   frame.strokes.forEach((stroke,s)=>strokes.push({weights:weights[s],delay:(text.length-1-index)*.18,points:stroke.points.map(p=>({x:p.x+advance,y:p.y}))}));advance+=frame.advance;index++;
+  }
+  const points=strokes.flatMap(s=>s.points);
+  rows.push({text,multiplier,strokes,left:Math.min(...points.map(p=>p.x)),right:Math.max(...points.map(p=>p.x)),top:Math.min(...points.map(p=>p.y)),bottom:Math.max(...points.map(p=>p.y))});
  }
- const points=strokes.flatMap(s=>s.points),left=Math.min(...points.map(p=>p.x)),right=Math.max(...points.map(p=>p.x)),top=Math.min(...points.map(p=>p.y)),bottom=Math.max(...points.map(p=>p.y));
  const started=performance.now();let size;
- function resize(){size={width:innerWidth,height:innerHeight,scale:Math.min(innerWidth*.45/(right-left),innerHeight*.23/(bottom-top))};svg.setAttribute('viewBox',`0 0 ${size.width} ${size.height}`);}
+ function resize(){
+  const width=innerWidth,height=innerHeight,scale=Math.min(width/2400,height/2600),lineWidth=Math.max(1.4,Math.min(3,width/450));
+  size={width,height,scale};svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.replaceChildren();
+  for(const row of rows){
+   const rowScale=scale*row.multiplier;
+   row.period=(row.right-row.left+440)*rowScale;
+   row.copies=Array.from({length:Math.ceil(width/row.period)+3},()=>row.strokes.map(stroke=>{const node=document.createElementNS('http://www.w3.org/2000/svg','path');node.setAttribute('stroke-width',lineWidth);svg.append(node);return node;}));
+  }
+ }
  resize();addEventListener('resize',resize);
  function draw(now){
-  const {width,height,scale}=size,step=(right-left)*.16,travel=step*scale,cycles=Math.ceil((width+(right-left)*scale+travel)/travel),time=((now-started)/520)%cycles,origin=-(right-left)*scale-travel;
-  for(const stroke of strokes){stroke.node.setAttribute('stroke-width',stroke.width*scale);stroke.node.setAttribute('d',stroke.points.map((point,i)=>{const p=walkingPoint(point,{lead:stroke.weights[i],step,time:Math.max(0,time-stroke.delay)});return `${i?'L':'M'}${origin+(p.x-left)*scale},${height/2+(p.y-(top+bottom)/2)*scale}`;}).join(' '));}requestAnimationFrame(draw);
+  const {height,scale}=size,time=(now-started)/520,cycle=Math.floor(time),step=200;
+  rows.forEach((row,r)=>{
+   const rowScale=scale*row.multiplier,offset=(cycle*step*rowScale)%row.period,centerY=height*[.25,.45,.73][r];
+   row.strokes.forEach((stroke,s)=>{
+    const path=stroke.points.map((point,i)=>walkingPoint(point,{lead:stroke.weights[i],step,time:Math.max(0,time-stroke.delay)}));
+    row.copies.forEach((nodes,copy)=>nodes[s].setAttribute('d',path.map((p,i)=>`${i?'L':'M'}${(p.x-row.left-cycle*step)*rowScale+offset+(copy-1)*row.period},${centerY+(p.y-(row.top+row.bottom)/2)*rowScale}`).join(' ')));
+   });
+  });requestAnimationFrame(draw);
  }requestAnimationFrame(draw);
 }catch(reason){document.querySelector('#error').textContent=`読み込みに失敗しました：${reason.message}`;}
 </script></html>
