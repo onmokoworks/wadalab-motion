@@ -6,8 +6,8 @@
 <script type="module">
 import {SourceEngine} from '/source-engine.js';
 import {prepareGlyph,dotGeometry} from '/motion-library.js';
-import {coast,leadingWeights} from '/walk-core.js';
-import {unfoldStep,reachPoint} from '/unfold-step.js';
+import {coast} from '/walk-core.js';
+import {createUnfoldRig,unfoldPaths} from '/unfold-step.js';
 const svg=document.querySelector('svg');
 function dotPoints(piece){const dot=dotGeometry(piece);return Array.from({length:25},(_,i)=>({x:dot.center.x+Math.cos(i/24*Math.PI*2)*dot.radiusX,y:dot.center.y+Math.sin(i/24*Math.PI*2)*dot.radiusY}));}
 svg.style.touchAction='pan-y';svg.style.cursor='grab';
@@ -34,8 +34,8 @@ try{
    const posed=engine.closeLoopPaths(glyph,0);
    const paths=posed.map(piece=>piece.dotWidth?dotPoints(piece):piece.path);
    const xs=paths.flatMap(path=>path.map(p=>p.x)),minimum=compact?Math.min(...xs):0;
-   const weights=leadingWeights(paths.map(points=>({points})),'MWwxX'.includes(character)?{originX:(Math.min(...xs)+Math.max(...xs))/2}:{});
-   glyphs.push({glyph,paths,weights,advance:advance-minimum,delay:(text.length-1-index)*.18,start:strokes.length});
+   const rig=createUnfoldRig(paths);
+   glyphs.push({glyph,paths,rig,advance:advance-minimum,delay:(text.length-1-index)*.18,start:strokes.length});
    paths.forEach(path=>strokes.push({points:path.map(p=>({x:p.x-minimum+advance,y:p.y}))}));advance+=compact?Math.max(...xs)-minimum+8:glyph.advance*400;index++;
 
   }
@@ -50,6 +50,7 @@ try{
   for(const row of rows){
    const rowHeight=(row.bottom-row.top)*scale*row.multiplier;row.centerY=y+rowHeight/2;y+=rowHeight+gap;
    const rowScale=scale*row.multiplier;
+   row.distance=Math.min(120,Math.max(...row.glyphs.map(item=>item.rig.step)));
    row.period=(row.right-row.left+(compact?40:440))*rowScale;
    row.copies=Array.from({length:Math.ceil(width/row.period)+3},()=>row.strokes.map(stroke=>{const node=document.createElementNS('http://www.w3.org/2000/svg','path');node.setAttribute('stroke-width',lineWidth);svg.append(node);return node;}));
   }
@@ -60,13 +61,11 @@ try{
   if(!drag){const motion=coast(velocity,dt);manualOffset+=motion.distance;velocity=motion.velocity;driftOffset+=dt*width*.02;}
   rows.forEach((row,r)=>{
    const drift=driftOffset*row.linearSpeed+manualOffset;
-   const time=elapsed*row.speed,cycle=Math.floor(time),rowScale=scale*row.multiplier,offset=((cycle*step*rowScale+drift)%row.period+row.period)%row.period,centerY=row.centerY;
+   const time=elapsed*row.speed,cycle=Math.floor(time),rowScale=scale*row.multiplier,offset=((cycle*row.distance*rowScale+drift)%row.period+row.period)%row.period,centerY=row.centerY;
    row.glyphs.forEach(item=>{
-    const state=unfoldStep(Math.max(0,time-item.delay),step),posed=engine.closeLoopPaths(item.glyph,1-state.progress);
-    posed.forEach((piece,s)=>{
-     const source=piece.dotWidth?dotPoints(piece):piece.path;
-     const path=source.map((p,i)=>reachPoint(item.paths[s][i],p,item.weights[s][i],state,step));
-     row.copies.forEach((nodes,copy)=>nodes[item.start+s].setAttribute('d',path.map((p,i)=>`${i?'L':'M'}${(p.x+item.advance-row.left-cycle*step)*rowScale+offset+(copy-1)*row.period},${centerY+(p.y-(row.top+row.bottom)/2)*rowScale}`).join(' ')));
+    const paths=unfoldPaths(item.paths,item.rig,Math.max(0,time-item.delay),row.distance);
+    paths.forEach((path,s)=>{
+     row.copies.forEach((nodes,copy)=>nodes[item.start+s].setAttribute('d',path.map((p,i)=>`${i?'L':'M'}${(p.x+item.advance-row.left-cycle*row.distance)*rowScale+offset+(copy-1)*row.period},${centerY+(p.y-(row.top+row.bottom)/2)*rowScale}`).join(' ')));
     });
    });
   });requestAnimationFrame(draw);
