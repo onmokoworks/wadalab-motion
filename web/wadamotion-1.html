@@ -28,11 +28,11 @@ try{
    if(character===' '){advance+=smallText?340:compact?100:220;index++;continue;}
    const frame=library.sample(character,1);if(frame.kind!=='paths')throw new Error('文字の線データがありません');
    frame.strokes=frame.strokes.map(stroke=>stroke.points?stroke:{...stroke,points:Array.from({length:25},(_,i)=>({x:stroke.center.x+Math.cos(i/24*Math.PI*2)*stroke.radiusX,y:stroke.center.y+Math.sin(i/24*Math.PI*2)*stroke.radiusY}))});
-   const xs=frame.strokes.flatMap(stroke=>stroke.points.map(p=>p.x)),minimum=compact?Math.min(...xs):0;
+   const xs=frame.strokes.flatMap(stroke=>stroke.points.map(p=>p.x)),minimum=Math.min(...xs);
    const cross='xX'.includes(character)?crossRig(frame.strokes):null;
    const weights=cross?cross.weights:leadingWeights(frame.strokes,'MWw'.includes(character)?{originX:(Math.min(...xs)+Math.max(...xs))/2}:{});
    if(cross)frame.strokes=cross.strokes;
-   frame.strokes.forEach((stroke,s)=>strokes.push({weights:weights[s],delay:(text.length-1-index)*.18,points:stroke.points.map(p=>({x:p.x-minimum+advance,y:p.y}))}));advance+=smallText?Math.max(frame.advance,Math.max(...xs)-Math.min(...xs)+160):compact?Math.max(...xs)-minimum+8:frame.advance;index++;
+   frame.strokes.forEach((stroke,s)=>strokes.push({weights:weights[s],delay:(text.length-1-index)*.18,points:stroke.points.map(p=>({x:p.x-minimum+advance,y:p.y}))}));advance+=Math.max(frame.advance,Math.max(...xs)-minimum+(smallText?240:80));index++;
   }
   const points=strokes.flatMap(s=>s.points);
   rows.push({text,multiplier,speed,linearSpeed:linearSpeed??Math.max(1,1/multiplier),strokes,left:Math.min(...points.map(p=>p.x)),right:Math.max(...points.map(p=>p.x)),top:Math.min(...points.map(p=>p.y)),bottom:Math.max(...points.map(p=>p.y))});
@@ -45,7 +45,7 @@ try{
   for(const row of rows){
    const rowHeight=(row.bottom-row.top)*scale*row.multiplier;row.centerY=y+rowHeight/2;y+=rowHeight+gap;
    const rowScale=scale*row.multiplier;
-   row.period=(row.right-row.left+(compact?40:440))*rowScale;
+   row.period=(row.right-row.left+Math.max(...row.strokes.map(stroke=>stroke.delay))*200+440)*rowScale;
    row.copies=Array.from({length:Math.ceil(width/row.period)+3},()=>row.strokes.map(stroke=>{const node=document.createElementNS('http://www.w3.org/2000/svg','path');node.setAttribute('stroke-width',lineWidth);svg.append(node);return node;}));
   }
  }
