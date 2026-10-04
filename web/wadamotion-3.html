@@ -3,7 +3,7 @@
 <a href="/workspace/" aria-label="workspaceへ戻る">←</a><svg role="img" aria-label="各文につき一文字だけが右へ続く文字列の字形へ変わり続ける"></svg><p id="error"></p>
 <script type="module">
 import {createMotionLibrary} from '/motion-library.js';
-import {buildMorph,morphPaths,arcPosition,morphSchedule} from '/glyph-morph.js';
+import {buildMorph,straightMorphPaths,strongEase,morphSchedule} from '/glyph-morph.js';
 const svg=document.querySelector('svg'),NS='http://www.w3.org/2000/svg';
 try{
  const names={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
@@ -26,7 +26,7 @@ try{
  function draw(now){const elapsed=(now-started)/1000;
   for(const row of rows){const n=row.characters.length,state=morphSchedule(elapsed,n,.14,.8),index=state.active,next=(index+1)%n,from=row.characters[index],to=row.characters[next],progress=state.progress,key=from+to;
    if(!transitions.has(key))transitions.set(key,buildMorph(glyphs.get(from),glyphs.get(to)));
-   const origin=row.slots[index].x+state.round*row.width,target=(next===0?(state.round+1)*row.width:row.slots[next].x+state.round*row.width),paths=morphPaths(transitions.get(key),progress),position=arcPosition(origin,target,progress),group=row.group;
+   const origin=row.slots[index].x+state.round*row.width,target=(next===0?(state.round+1)*row.width:row.slots[next].x+state.round*row.width),paths=straightMorphPaths(transitions.get(key),progress),position={x:origin+(target-origin)*strongEase(progress)},group=row.group;
    const margin=400*row.scale,span=innerWidth+2*margin,screenX=((row.left+position.x*row.scale+margin)%span+span)%span-margin;
    group.dataset.character=from;group.dataset.next=to;group.dataset.index=index;group.dataset.round=state.round;
    while(group.children.length<paths.length){const path=document.createElementNS(NS,'path');path.setAttribute('stroke-width',Math.max(1.3,Math.min(2.8,innerWidth/500)));group.append(path);}

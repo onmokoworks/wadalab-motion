@@ -49,3 +49,10 @@ for(const count of [3,4,9]){
 }
 const arm=[[{x:0,y:0},{x:100,y:0}]],targetArms=[arm[0],[{x:0,y:50},{x:100,y:50}]],branched=buildMorph(arm,targetArms);
 assert.equal(branched.pairs.length,2);assert.ok(branched.pairs[1][0].every(p=>p.y===0));
+const {straightMorphPaths,strongEase}=await import('./web/glyph-morph.js');
+const curve=[[{x:0,y:0},{x:50,y:100},{x:100,y:0}]],curved=buildMorph(curve,[[{x:0,y:0},{x:50,y:-50},{x:100,y:0}]]);
+assert.deepEqual(straightMorphPaths(curved,0),curve);
+assert.deepEqual(straightMorphPaths(curved,1),curved.to);
+for(const path of straightMorphPaths(curved,.5)){const a=path[0],b=path.at(-1);for(const p of path)assert.ok(Math.abs((p.x-a.x)*(b.y-a.y)-(p.y-a.y)*(b.x-a.x))<1e-6);}
+assert.ok(strongEase(.25)<.05);assert.ok(strongEase(.75)>.95);
+console.log('Straight intermediate paths and stronger ease-in-out pass');

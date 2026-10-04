@@ -29,6 +29,23 @@ export function buildMorph(from,to){
  for(const i of unused){const p=attachment(b[i],a);pairs.push([b[i].map(()=>p),b[i]]);}
  return {from,to,pairs};
 }
+export function strongEase(progress){
+ const p=Math.max(0,Math.min(1,progress));return p<.5?16*p**5:1-16*(1-p)**5;
+}
+function straightBridge(a,b){
+ const points=a.map((p,i)=>mix(p,b[i],.5));let start=points[0],end=points.at(-1);
+ // A closed curve needs a diameter rather than its coincident endpoints.
+ let diameter=0,pair=[start,end];for(let i=0;i<points.length;i++)for(let j=i+1;j<points.length;j++){const d=squared(points[i],points[j]);if(d>diameter){diameter=d;pair=[points[i],points[j]];}}
+ if(squared(start,end)<diameter*.1)[start,end]=pair;
+ return points.map((_,i)=>mix(start,end,i/(points.length-1)));
+}
+const straightBridges=new WeakMap();
+export function straightMorphPaths(morph,progress){
+ if(progress<=0)return morph.from;if(progress>=1)return morph.to;
+ const t=strongEase(progress);
+ if(!straightBridges.has(morph))straightBridges.set(morph,morph.pairs.map(([a,b])=>straightBridge(a,b)));
+ return morph.pairs.map(([a,b],index)=>{const line=straightBridges.get(morph)[index];return t<=.5?a.map((p,i)=>mix(p,line[i],t*2)):line.map((p,i)=>mix(p,b[i],t*2-1));});
+}
 export function morphPaths(morph,progress){
  if(progress<=0)return morph.from;if(progress>=1)return morph.to;
  const t=progress**3*(progress*(progress*6-15)+10);return morph.pairs.map(([a,b])=>a.map((p,i)=>mix(p,b[i],t)));
