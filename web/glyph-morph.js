@@ -5,11 +5,18 @@ export function resample(path,count=48){
 }
 const center=path=>path.reduce((s,p)=>({x:s.x+p.x/path.length,y:s.y+p.y/path.length}),{x:0,y:0});
 const squared=(a,b)=>(a.x-b.x)**2+(a.y-b.y)**2;
+const attachment=(path,others)=>{const c=center(path),points=others.flat();return points.reduce((best,p)=>squared(p,c)<squared(best,c)?p:best,points[0]??c);};
+const correspondence=(a,b)=>{
+ const direct=a.reduce((sum,p,i)=>sum+squared(p,b[i]),0)/a.length;
+ const reversed=a.reduce((sum,p,i)=>sum+squared(p,b[b.length-1-i]),0)/a.length;
+ const aa=Math.atan2(a.at(-1).y-a[0].y,a.at(-1).x-a[0].x),bb=Math.atan2(b.at(-1).y-b[0].y,b.at(-1).x-b[0].x);
+ return Math.min(direct,reversed)+20000*Math.sin(aa-bb)**2;
+};
 export function buildMorph(from,to){
  const a=from.map(p=>resample(p)),b=to.map(p=>resample(p)),pairs=[],unused=new Set(b.map((_,i)=>i));
  for(const path of a){
-  let selected=-1,cost=Infinity;for(const i of unused){const c=squared(center(path),center(b[i]));if(c<cost){cost=c;selected=i;}}
-  if(selected<0){const p=center(path);pairs.push([path,path.map(()=>p)]);continue;}
+  let selected=-1,cost=Infinity;for(const i of unused){const c=correspondence(path,b[i]);if(c<cost){cost=c;selected=i;}}
+  if(selected<0){const p=attachment(path,b);pairs.push([path,path.map(()=>p)]);continue;}
   unused.delete(selected);let target=b[selected];
   const score=q=>path.reduce((sum,p,i)=>sum+squared(p,q[i]),0);
   if(score(target.slice().reverse())<score(target))target=target.slice().reverse();
@@ -19,12 +26,12 @@ export function buildMorph(from,to){
   }
   pairs.push([path,target]);
  }
- for(const i of unused){const p=center(b[i]);pairs.push([b[i].map(()=>p),b[i]]);}
+ for(const i of unused){const p=attachment(b[i],a);pairs.push([b[i].map(()=>p),b[i]]);}
  return {from,to,pairs};
 }
 export function morphPaths(morph,progress){
  if(progress<=0)return morph.from;if(progress>=1)return morph.to;
- const t=progress*progress*(3-2*progress);return morph.pairs.map(([a,b])=>a.map((p,i)=>mix(p,b[i],t)));
+ const t=progress**3*(progress*(progress*6-15)+10);return morph.pairs.map(([a,b])=>a.map((p,i)=>mix(p,b[i],t)));
 }
 export function morphSchedule(seconds,count,hold=1,duration=.4666666667){
  seconds=Math.max(0,seconds);
@@ -32,7 +39,7 @@ export function morphSchedule(seconds,count,hold=1,duration=.4666666667){
  return {round:Math.floor(tick/count),active:tick%count,progress:Math.max(0,Math.min(1,(phase-hold)/duration))};
 }// Keep the glyph upright while its origin follows a shallow arc between slots.
 export function arcPosition(from,to,progress){
- const p=Math.max(0,Math.min(1,progress)),t=p*p*(3-2*p);
+ const p=Math.max(0,Math.min(1,progress)),t=p**3*(p*(p*6-15)+10);
  return {x:from+(to-from)*t,y:-Math.min(110,Math.abs(to-from)*.38)*Math.sin(Math.PI*t)};
 }
 export function travelMorph(morph,fromX,toX,progress){

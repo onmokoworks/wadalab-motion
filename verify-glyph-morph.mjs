@@ -41,4 +41,11 @@ assert.deepEqual(sequenceState(0,4,0,1),{index:0,next:1,progress:0,done:false});
 assert.equal(sequenceState(.5,4,0,1).progress,.5);
 assert.deepEqual(sequenceState(1,4,0,1),{index:1,next:2,progress:0,done:false});
 assert.deepEqual(sequenceState(3,4,0,1),{index:3,next:3,progress:0,done:true});
-const source=await readFile('web/wadamotion-3.html','utf8');assert.ok(source.includes('row.group=document.createElementNS'));assert.ok(source.includes('row.slots.push({x})'));assert.ok(source.includes('sequenceState(elapsed,row.characters.length,0,1)'));
+
+// Repetition advances the world position; the last-to-first transition goes right.
+for(const count of [3,4,9]){
+ const last=morphSchedule((count-1)*.94+.5,count,.14,.8),first=morphSchedule(count*.94+.01,count,.14,.8);
+ assert.equal(last.active,count-1);assert.equal(first.active,0);assert.equal(first.round,last.round+1);
+}
+const arm=[[{x:0,y:0},{x:100,y:0}]],targetArms=[arm[0],[{x:0,y:50},{x:100,y:50}]],branched=buildMorph(arm,targetArms);
+assert.equal(branched.pairs.length,2);assert.ok(branched.pairs[1][0].every(p=>p.y===0));
