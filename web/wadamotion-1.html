@@ -22,7 +22,7 @@ try{
  const names={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
  const data=Object.fromEntries(await Promise.all(Object.entries(names).map(async([name,path])=>{const response=await fetch(new URL(path,new URL('/motion-library.js',location.href)));if(!response.ok)throw new Error(response.status);return [name,await response.json()];})));
  const library=createMotionLibrary(data),rows=[],compact=new URLSearchParams(location.search).get('spacing')==='compact';
- for(const [text,multiplier,speed] of [['TEST',1,1],['onmk.work',.5,2],['MOTION',1,1],['Wadalab font',2,1],...'The quick brown fox jumps over the lazy dog'.split(' ').map(word=>[word,1,1])]){
+ for(const [text,multiplier,speed] of [['TEST',1,1],['onmk.work',.5,2],['MOTION',1,1],['Wadalab font',2,1],['The',2,1],['quick',.5,3],['brown',1.35,.8],['fox',.75,1.8],['jumps',1.15,1.4],['over',.65,2],['the',1,.75],['lazy',1.5,.6],['dog',.9,1.6]]){
   const strokes=[];let advance=0,index=0;
   for(const character of text){
    if(character===' '){advance+=compact?100:220;index++;continue;}
