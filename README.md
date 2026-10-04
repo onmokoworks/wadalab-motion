@@ -40,3 +40,15 @@ node server.mjs
 本プロジェクトで新たに作成したサイト・アニメーションのコードは[MITライセンス](LICENSE)で公開しています。
 
 和田研の原典、それを移植したコードと文字データ、同梱フォントには、それぞれの利用条件が適用されます。[原典のライセンス](web/SOURCE-LICENSE.txt)、[移植部分の出典](web/SOURCE-NOTICE.txt)、[フォントのライセンス](web/font/LICENSE.txt)を参照してください。
+
+## 字形間のモーフィング
+
+```js
+import {buildMorph, straightMorphPaths} from 'wadalab-motion/morph';
+
+// 各パスは [{x, y}, ...]。準備は字形の組ごとに一度だけ。
+const transition = buildMorph(fromPaths, toPaths);
+const paths = straightMorphPaths(transition, progress);
+```
+
+進行率0で元の字形、0.5で直線、1で次の字形を返します。閉じた曲線も直線を経由します。返り値をSVGやUnityなどの描画側へ渡します。イーズインアウトはこの関数内で適用するため、渡す進行率は時間に比例させます。文字全体の移動・ループ・待機時間は呼び出し側で決めます。
