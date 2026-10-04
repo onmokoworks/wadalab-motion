@@ -8,7 +8,7 @@ export function walkingPoint(point,{lead=0,step,time}){
 }
 
 // Curve extrema define the lead; all paths share one monotone x field.
-export function leadingWeights(strokes){
+export function leadingWeights(strokes,{originX}={}){
  const points=strokes.flatMap(stroke=>stroke.points),left=Math.min(...points.map(p=>p.x)),right=Math.max(...points.map(p=>p.x)),apices=[];
  for(const stroke of strokes){
   const source=stroke.points,closed=Math.hypot(source[0].x-source.at(-1).x,source[0].y-source.at(-1).y)<1e-5,p=closed?source.slice(0,-1):source;
@@ -21,7 +21,7 @@ export function leadingWeights(strokes){
   }
  }
  // Straight strokes follow the same field when a curved apex exists.
- const origins=apices.length?apices:strokes.map(stroke=>Math.max(...stroke.points.map(p=>p.x)));
+ const origins=Number.isFinite(originX)?[originX]:apices.length?apices:strokes.map(stroke=>Math.max(...stroke.points.map(p=>p.x)));
  const reach=Math.max(1,(right-left)*.16);
  return strokes.map(stroke=>stroke.points.map(p=>Math.max(0,...origins.map(x=>smooth((p.x-x+reach)/reach)))));
 }
