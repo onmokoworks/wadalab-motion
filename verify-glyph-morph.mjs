@@ -16,3 +16,13 @@ for(const count of [3,4,6,9,35])for(const seconds of [0,.9,1.09,1.19,2.4,8]){
  assert.ok(state.active>=0&&state.active<count);assert.equal(Array.from({length:count},(_,i)=>i).filter(i=>i===state.active).length,1);
 }
 assert.equal(morphSchedule(1.18,4,1,.18).active,1);
+const {arcPosition}=await import('./web/glyph-morph.js');
+assert.deepEqual(arcPosition(0,220,0),{x:0,y:-0});
+assert.ok(Math.abs(arcPosition(0,220,1).x-220)<1e-9);
+assert.ok(Math.abs(arcPosition(0,220,1).y)<1e-9);
+assert.equal(arcPosition(0,220,.5).x,110);assert.ok(arcPosition(0,220,.5).y<0);
+for(const count of [3,4,9])for(const tick of [0,count-1,count,count+1]){
+ const state=morphSchedule(tick*1.18+.01,count,1,.18);
+ const positions=Array.from({length:count},(_,i)=>(i+state.round+(i<state.active?1:0))%count);
+ if(state.active===0)assert.equal(new Set(positions).size,count);
+}
