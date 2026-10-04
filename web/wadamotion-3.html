@@ -23,8 +23,8 @@ try{
   }
  }
  resize();addEventListener('resize',resize);
- function draw(now){const state=morphSchedule((now-started)/1000,slots.length);
-  for(const slot of slots){const row=slot.row,n=row.characters.length,shift=state.round+(slot.global<state.active?1:0),from=row.characters[(slot.index+shift)%n],to=row.characters[(slot.index+shift+1)%n],progress=slot.global===state.active?state.progress:0,key=from+to;
+ function draw(now){const elapsed=(now-started)/1000;
+  for(const slot of slots){const row=slot.row,n=row.characters.length,state=morphSchedule(elapsed,n,1,.18),shift=state.round+(slot.index<state.active?1:0),from=row.characters[(slot.index+shift)%n],to=row.characters[(slot.index+shift+1)%n],progress=slot.index===state.active?state.progress:0,key=from+to;
    if(!transitions.has(key))transitions.set(key,buildMorph(glyphs.get(from),glyphs.get(to)));
    const paths=morphPaths(transitions.get(key),progress),group=slot.group;
    while(group.children.length<paths.length){const path=document.createElementNS(NS,'path');path.setAttribute('stroke-width',Math.max(1.3,Math.min(2.8,innerWidth/500)));group.append(path);}

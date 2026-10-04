@@ -11,3 +11,8 @@ for(const text of ['TEST','MOTION','Wadalabfont','Thequickbrownfoxjumpsoverthela
 assert.equal(morphSchedule(.99,4).progress,0);assert.equal(morphSchedule(1.2,4).active,0);assert.equal(morphSchedule(1.5,4).active,1);assert.equal(morphSchedule(1.5,4).progress,0);
 console.log('Adjacent glyph morph endpoints, finite poses, single active slot and one-second hold pass');
 assert.deepEqual(morphSchedule(-.01,4),{round:0,active:0,progress:0});
+for(const count of [3,4,6,9,35])for(const seconds of [0,.9,1.09,1.19,2.4,8]){
+ const state=morphSchedule(seconds,count,1,.18);
+ assert.ok(state.active>=0&&state.active<count);assert.equal(Array.from({length:count},(_,i)=>i).filter(i=>i===state.active).length,1);
+}
+assert.equal(morphSchedule(1.18,4,1,.18).active,1);
