@@ -5,7 +5,7 @@ import {leadingWeights,walkingPoint} from './web/walk-core.js';
 const files={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
 const data=Object.fromEntries(await Promise.all(Object.entries(files).map(async([k,v])=>[k,JSON.parse(await readFile(new URL(`web/${v}`,import.meta.url),'utf8'))])));
 const library=createMotionLibrary(data);
-for(const character of 'oOabTESTMOTION'){
+for(const character of 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'){
  const strokes=library.sample(character,1).strokes,weights=leadingWeights(strokes);
  for(const time of [0,.15,.36,.44,.6,.8,1]){
   const ordered=strokes.flatMap((stroke,s)=>stroke.points.map((point,i)=>({point,moved:walkingPoint(point,{lead:weights[s][i],step:200,time})}))).sort((a,b)=>a.point.x-b.point.x);
