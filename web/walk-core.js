@@ -29,8 +29,10 @@ export function leadingWeights(strokes){
   const last=stroke.points.at(-1),first=stroke.points[0],closed=Math.hypot(last.x-first.x,last.y-first.y)<distances.at(-1)*.05;
   return distances.map(distance=>{let gap=Math.min(...tips.map(index=>{const d=Math.abs(distance-distances[index]);return closed?Math.min(d,distances.at(-1)-d):d;}));return smooth(1-gap/reach);});
  });
- // Connected paths must agree at shared junctions, so they cannot tear apart.
- const shared=new Map(),key=p=>`${p.x.toFixed(5)},${p.y.toFixed(5)}`;
- strokes.forEach((stroke,s)=>stroke.points.forEach((p,i)=>shared.set(key(p),Math.max(shared.get(key(p))??0,weights[s][i]))));
- return strokes.map((stroke,s)=>stroke.points.map((p,i)=>shared.get(key(p))));
+ // One horizontal displacement field per glyph: vertically aligned points
+ // receive exactly the same motion, including across disconnected strokes.
+ const points=strokes.flatMap(stroke=>stroke.points),left=Math.min(...points.map(p=>p.x)),right=Math.max(...points.map(p=>p.x));
+ const origins=strokes.flatMap((stroke,s)=>stroke.points.filter((p,i)=>weights[s][i]>.999999).map(p=>p.x));
+ const reach=Math.max(1,(right-left)*.16);
+ return strokes.map(stroke=>stroke.points.map(p=>Math.max(0,...origins.map(x=>smooth(1-Math.abs(p.x-x)/reach)))));
 }
