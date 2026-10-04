@@ -1,34 +1,35 @@
 <!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Wadamotion-3 — morph</title><link rel="icon" href="data:,">
 <style>html,body{margin:0;background:#fff;color:#111;overflow-x:hidden}svg{display:block;width:100%}path{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}a{position:absolute;top:18px;left:20px;color:#999;text-decoration:none;font:14px monospace}#error{font:14px monospace}</style>
-<a href="/workspace/" aria-label="workspaceへ戻る">←</a><svg role="img" aria-label="文字が一文字ずつ弧を描いて右隣の位置と字形へ変わる"></svg><p id="error"></p>
+<a href="/workspace/" aria-label="workspaceへ戻る">←</a><svg role="img" aria-label="各文につき一文字だけが右隣の位置と字形へ変わり、末尾で停止する"></svg><p id="error"></p>
 <script type="module">
 import {createMotionLibrary} from '/motion-library.js';
-import {buildMorph,morphPaths,morphSchedule,travelMorph} from '/glyph-morph.js';
+import {buildMorph,morphPaths,arcPosition,sequenceState} from '/glyph-morph.js';
 const svg=document.querySelector('svg'),NS='http://www.w3.org/2000/svg';
 try{
  const names={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
  const data=Object.fromEntries(await Promise.all(Object.entries(names).map(async([k,p])=>{const response=await fetch(new URL(p,new URL('/motion-library.js',location.href)));if(!response.ok)throw Error(response.status);return [k,await response.json()];})));
- const library=createMotionLibrary(data),glyphs=new Map(),transitions=new Map(),rows=[],slots=[];
+ const library=createMotionLibrary(data),glyphs=new Map(),transitions=new Map(),rows=[];
  for(const [text,size] of [['TEST',1],['onmk.work',.5],['MOTION',1],['Wadalab font',2],['The quick brown fox jumps over the lazy dog',.25],['The',2],['quick',.5],['brown',1.35],['fox',.75],['jumps',1.15],['over',.65],['the',1],['lazy',1.5],['dog',.9]]){
   const characters=[...text].filter(ch=>ch!==' '),row={text,size,characters,slots:[]};let x=0;
   for(const ch of text){if(ch===' '){x+=180;continue;}
    if(!glyphs.has(ch)){const frame=library.sample(ch,1),paths=frame.strokes.map(s=>s.kind==='dot'?Array.from({length:25},(_,i)=>({x:s.center.x+Math.cos(i/24*Math.PI*2)*s.radiusX,y:s.center.y+Math.sin(i/24*Math.PI*2)*s.radiusY})):s.points);const xs=paths.flat().map(p=>p.x),offset=100-(Math.min(...xs)+Math.max(...xs))/2;glyphs.set(ch,paths.map(path=>path.map(p=>({x:p.x+offset,y:p.y}))));}
-   const slot={row,x,index:row.slots.length,global:slots.length};slots.push(slot);row.slots.push(slot);x+=220;
+   row.slots.push({x});x+=220;
   }row.width=x;rows.push(row);
  }
  let started=performance.now();
  function resize(){const width=innerWidth,base=Math.min(width/2500,innerHeight/2900),total=rows.reduce((sum,row)=>sum+400*base*row.size+4,0),height=Math.max(innerHeight,total+90);svg.style.height=`${height}px`;svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.replaceChildren();let y=(height-total)/2;
   for(const row of rows){row.scale=Math.min(base*row.size,(width-32)/row.width);row.y=y;y+=400*base*row.size+4;row.left=(width-row.width*row.scale)/2;
-   for(const slot of row.slots){slot.group=document.createElementNS(NS,'g');svg.append(slot.group);}
+   row.group=document.createElementNS(NS,'g');svg.append(row.group);
   }
  }
  resize();addEventListener('resize',resize);
  function draw(now){const elapsed=(now-started)/1000;
-  for(const slot of slots){const row=slot.row,n=row.characters.length,state=morphSchedule(elapsed,n,1,.18),shift=state.round+(slot.index<state.active?1:0),from=row.characters[(slot.index+shift)%n],to=row.characters[(slot.index+shift+1)%n],progress=slot.index===state.active?state.progress:0,key=from+to;
+  for(const row of rows){const state=sequenceState(elapsed,row.characters.length,0,1),from=row.characters[state.index],to=row.characters[state.next],progress=state.progress,key=from+to;
    if(!transitions.has(key))transitions.set(key,buildMorph(glyphs.get(from),glyphs.get(to)));
-   const origin=row.slots[(slot.index+shift)%n].x,target=row.slots[(slot.index+shift+1)%n].x,paths=travelMorph(transitions.get(key),origin,target,progress),group=slot.group;
+   const origin=row.slots[state.index].x,target=row.slots[state.next].x,paths=morphPaths(transitions.get(key),progress),position=arcPosition(origin,target,progress),group=row.group;
+   group.dataset.character=from;group.dataset.next=to;group.dataset.index=state.index;group.dataset.done=state.done;
    while(group.children.length<paths.length){const path=document.createElementNS(NS,'path');path.setAttribute('stroke-width',Math.max(1.3,Math.min(2.8,innerWidth/500)));group.append(path);}
-   for(let s=0;s<group.children.length;s++){const path=paths[s],length=path?.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-path[i].x,p.y-path[i].y),0);group.children[s].setAttribute('d',length>1e-6?path.map((p,i)=>`${i?'L':'M'}${row.left+p.x*row.scale},${row.y+p.y*row.scale}`).join(' '):'');}
+   for(let s=0;s<group.children.length;s++){const path=paths[s],length=path?.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-path[i].x,p.y-path[i].y),0);group.children[s].setAttribute('d',length>1e-6?path.map((p,i)=>`${i?'L':'M'}${row.left+(p.x+position.x)*row.scale},${row.y+(p.y+position.y)*row.scale}`).join(' '):'');}
   }requestAnimationFrame(draw);
  }requestAnimationFrame(draw);
 }catch(e){document.querySelector('#error').textContent=`読み込みに失敗しました：${e.message}`;}

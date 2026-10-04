@@ -45,3 +45,8 @@ export function travelMorph(morph,fromX,toX,progress){
   return {x:p.x+fromX+(b[i].x+toX-p.x-fromX)*t,y:p.y+(b[i].y-p.y)*t-height*Math.sin(Math.PI*t)};
  }));
 }
+export function sequenceState(seconds,count,hold=1,duration=.18){
+ const elapsed=Math.max(0,seconds),last=Math.max(0,count-1),index=Math.min(last,Math.floor(elapsed/(hold+duration)));
+ if(index===last)return {index,next:index,progress:0,done:true};
+ return {index,next:index+1,progress:Math.max(0,Math.min(1,(elapsed-index*(hold+duration)-hold)/duration)),done:false};
+}
