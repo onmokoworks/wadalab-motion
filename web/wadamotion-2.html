@@ -6,8 +6,8 @@
 <script type="module">
 import {SourceEngine} from '/source-engine.js';
 import {prepareGlyph,dotGeometry} from '/motion-library.js';
-import {coast} from '/walk-core.js';
-import {unfoldStep} from '/unfold-step.js';
+import {coast,leadingWeights} from '/walk-core.js';
+import {unfoldStep,reachPoint} from '/unfold-step.js';
 const svg=document.querySelector('svg');
 function dotPoints(piece){const dot=dotGeometry(piece);return Array.from({length:25},(_,i)=>({x:dot.center.x+Math.cos(i/24*Math.PI*2)*dot.radiusX,y:dot.center.y+Math.sin(i/24*Math.PI*2)*dot.radiusY}));}
 svg.style.touchAction='pan-y';svg.style.cursor='grab';
@@ -34,7 +34,8 @@ try{
    const posed=engine.closeLoopPaths(glyph,0);
    const paths=posed.map(piece=>piece.dotWidth?dotPoints(piece):piece.path);
    const xs=paths.flatMap(path=>path.map(p=>p.x)),minimum=compact?Math.min(...xs):0;
-   glyphs.push({glyph,advance:advance-minimum,delay:(text.length-1-index)*.18,start:strokes.length});
+   const weights=leadingWeights(paths.map(points=>({points})),'MWwxX'.includes(character)?{originX:(Math.min(...xs)+Math.max(...xs))/2}:{});
+   glyphs.push({glyph,paths,weights,advance:advance-minimum,delay:(text.length-1-index)*.18,start:strokes.length});
    paths.forEach(path=>strokes.push({points:path.map(p=>({x:p.x-minimum+advance,y:p.y}))}));advance+=compact?Math.max(...xs)-minimum+8:glyph.advance*400;index++;
 
   }
@@ -55,7 +56,7 @@ try{
  }
  resize();addEventListener('resize',resize);
  function draw(now){
-  const {width,height,scale}=size,elapsed=(now-started)/520,step=200,dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
+  const {width,height,scale}=size,elapsed=(now-started)/1250,step=120,dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
   if(!drag){const motion=coast(velocity,dt);manualOffset+=motion.distance;velocity=motion.velocity;driftOffset+=dt*width*.02;}
   rows.forEach((row,r)=>{
    const drift=driftOffset*row.linearSpeed+manualOffset;
@@ -63,8 +64,9 @@ try{
    row.glyphs.forEach(item=>{
     const state=unfoldStep(Math.max(0,time-item.delay),step),posed=engine.closeLoopPaths(item.glyph,1-state.progress);
     posed.forEach((piece,s)=>{
-     const path=piece.dotWidth?dotPoints(piece):piece.path;
-     row.copies.forEach((nodes,copy)=>nodes[item.start+s].setAttribute('d',path.map((p,i)=>`${i?'L':'M'}${(p.x+item.advance+state.travel-row.left-cycle*step)*rowScale+offset+(copy-1)*row.period},${centerY+(p.y-(row.top+row.bottom)/2)*rowScale}`).join(' ')));
+     const source=piece.dotWidth?dotPoints(piece):piece.path;
+     const path=source.map((p,i)=>reachPoint(item.paths[s][i],p,item.weights[s][i],state,step));
+     row.copies.forEach((nodes,copy)=>nodes[item.start+s].setAttribute('d',path.map((p,i)=>`${i?'L':'M'}${(p.x+item.advance-row.left-cycle*step)*rowScale+offset+(copy-1)*row.period},${centerY+(p.y-(row.top+row.bottom)/2)*rowScale}`).join(' ')));
     });
    });
   });requestAnimationFrame(draw);
