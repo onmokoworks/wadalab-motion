@@ -14,12 +14,11 @@ try{
  for(const [text,multiplier,speed] of [['TEST',1,1],['onmk.work',.5,2],['MOTION',1,1],['Wadalab font',2,1]]){
   const strokes=[];let advance=0,index=0;
   for(const character of text){
-   if(character===' '){advance+=100;index++;continue;}
+   if(character===' '){advance+=220;index++;continue;}
    const frame=library.sample(character,1);if(frame.kind!=='paths')throw new Error('文字の線データがありません');
    frame.strokes=frame.strokes.map(stroke=>stroke.points?stroke:{...stroke,points:Array.from({length:25},(_,i)=>({x:stroke.center.x+Math.cos(i/24*Math.PI*2)*stroke.radiusX,y:stroke.center.y+Math.sin(i/24*Math.PI*2)*stroke.radiusY}))});
-   const xs=frame.strokes.flatMap(stroke=>stroke.points.map(p=>p.x)),minimum=Math.min(...xs),maximum=Math.max(...xs);
    const weights=leadingWeights(frame.strokes);
-   frame.strokes.forEach((stroke,s)=>strokes.push({weights:weights[s],delay:(text.length-1-index)*.18,points:stroke.points.map(p=>({x:p.x-minimum+advance,y:p.y}))}));advance+=maximum-minimum+8;index++;
+   frame.strokes.forEach((stroke,s)=>strokes.push({weights:weights[s],delay:(text.length-1-index)*.18,points:stroke.points.map(p=>({x:p.x+advance,y:p.y}))}));advance+=frame.advance;index++;
   }
   const points=strokes.flatMap(s=>s.points);
   rows.push({text,multiplier,speed,strokes,left:Math.min(...points.map(p=>p.x)),right:Math.max(...points.map(p=>p.x)),top:Math.min(...points.map(p=>p.y)),bottom:Math.max(...points.map(p=>p.y))});
@@ -28,9 +27,11 @@ try{
  function resize(){
   const width=innerWidth,height=innerHeight,scale=Math.min(width/2400,height/2600),lineWidth=Math.max(1.4,Math.min(3,width/450));
   size={width,height,scale};svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.replaceChildren();
+  const gap=10,totalHeight=rows.reduce((sum,row)=>sum+(row.bottom-row.top)*scale*row.multiplier,0)+gap*(rows.length-1);let y=(height-totalHeight)/2;
   for(const row of rows){
+   const rowHeight=(row.bottom-row.top)*scale*row.multiplier;row.centerY=y+rowHeight/2;y+=rowHeight+gap;
    const rowScale=scale*row.multiplier;
-   row.period=(row.right-row.left+40)*rowScale;
+   row.period=(row.right-row.left+440)*rowScale;
    row.copies=Array.from({length:Math.ceil(width/row.period)+3},()=>row.strokes.map(stroke=>{const node=document.createElementNS('http://www.w3.org/2000/svg','path');node.setAttribute('stroke-width',lineWidth);svg.append(node);return node;}));
   }
  }
@@ -38,7 +39,7 @@ try{
  function draw(now){
   const {height,scale}=size,elapsed=(now-started)/520,step=200;
   rows.forEach((row,r)=>{
-   const time=elapsed*row.speed,cycle=Math.floor(time),rowScale=scale*row.multiplier,offset=(cycle*step*rowScale)%row.period,centerY=height*[.18,.32,.47,.73][r];
+   const time=elapsed*row.speed,cycle=Math.floor(time),rowScale=scale*row.multiplier,offset=(cycle*step*rowScale)%row.period,centerY=row.centerY;
    row.strokes.forEach((stroke,s)=>{
     const path=stroke.points.map((point,i)=>walkingPoint(point,{lead:stroke.weights[i],step,time:Math.max(0,time-stroke.delay)}));
     row.copies.forEach((nodes,copy)=>nodes[s].setAttribute('d',path.map((p,i)=>`${i?'L':'M'}${(p.x-row.left-cycle*step)*rowScale+offset+(copy-1)*row.period},${centerY+(p.y-(row.top+row.bottom)/2)*rowScale}`).join(' ')));
