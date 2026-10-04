@@ -10,3 +10,4 @@ for(const text of ['TEST','MOTION','Wadalabfont','Thequickbrownfoxjumpsoverthela
 }
 assert.equal(morphSchedule(.99,4).progress,0);assert.equal(morphSchedule(1.2,4).active,0);assert.equal(morphSchedule(1.5,4).active,1);assert.equal(morphSchedule(1.5,4).progress,0);
 console.log('Adjacent glyph morph endpoints, finite poses, single active slot and one-second hold pass');
+assert.deepEqual(morphSchedule(-.01,4),{round:0,active:0,progress:0});

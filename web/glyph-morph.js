@@ -27,6 +27,7 @@ export function morphPaths(morph,progress){
  const t=progress*progress*(3-2*progress);return morph.pairs.map(([a,b])=>a.map((p,i)=>mix(p,b[i],t)));
 }
 export function morphSchedule(seconds,count,hold=1,duration=.4666666667){
+ seconds=Math.max(0,seconds);
  const tick=Math.floor(seconds/(hold+duration)),phase=seconds-tick*(hold+duration);
  return {round:Math.floor(tick/count),active:tick%count,progress:Math.max(0,Math.min(1,(phase-hold)/duration))};
 }
