@@ -9,6 +9,9 @@ const n=library.sample('n',1).strokes,nWeights=leadingWeights(n);
 const arch=n[1].points,apex=arch.reduce((best,p,i)=>p.y<arch[best].y?i:best,0);
 assert.equal(nWeights[1][apex],1,'n arch apex leads');
 assert.equal(nWeights[0][0],0,'n left stem stays planted before catch-up');
+const r=library.sample('r',1).strokes,rWeights=leadingWeights(r);
+assert.equal(rWeights[0][0],0,'r stem stays planted');
+assert.equal(rWeights[1][0],1,'r shoulder leads');
 for(const character of 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ'){
  const strokes=library.sample(character,1).strokes.map(stroke=>stroke.points?stroke:{...stroke,points:Array.from({length:25},(_,i)=>({x:stroke.center.x+Math.cos(i/24*Math.PI*2)*stroke.radiusX,y:stroke.center.y+Math.sin(i/24*Math.PI*2)*stroke.radiusY}))}),weights=leadingWeights(strokes);
  for(const time of [0,.15,.36,.44,.6,.8,1]){

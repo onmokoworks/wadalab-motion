@@ -16,6 +16,15 @@ export function leadingWeights(strokes,{originX}={}){
  const points=strokes.flatMap(stroke=>stroke.points),left=Math.min(...points.map(p=>p.x)),right=Math.max(...points.map(p=>p.x)),apices=[];
  for(const stroke of strokes){
   const source=stroke.points,closed=Math.hypot(source[0].x-source.at(-1).x,source[0].y-source.at(-1).y)<1e-5,p=closed?source.slice(0,-1):source;
+  // Sampled arcs can have a flat pair at their apex (for example r).
+  for(let i=1;i<p.length-2;i++){
+   let end=i;while(end+1<p.length&&Math.abs(p[end+1].y-p[i].y)<.01)end++;
+   if(end===i||end===p.length-1)continue;
+   const a=p[i].y-p[i-1].y,b=p[end+1].y-p[end].y;
+   const before=Math.atan2(a,p[i].x-p[i-1].x),after=Math.atan2(b,p[end+1].x-p[end].x),turn=Math.abs(Math.atan2(Math.sin(after-before),Math.cos(after-before)));
+   if(a*b<0&&turn>.005&&turn<.8)apices.push((p[i].x+p[end].x)/2);
+   i=end;
+  }
   for(let i=0;i<p.length;i++){
    if(!closed&&(i===0||i===p.length-1))continue;
    const previous=p[(i-1+p.length)%p.length],next=p[(i+1)%p.length],a=p[i].y-previous.y,b=next.y-p[i].y;
