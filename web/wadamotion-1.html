@@ -29,7 +29,7 @@ try{
    const frame=library.sample(character,1);if(frame.kind!=='paths')throw new Error('文字の線データがありません');
    frame.strokes=frame.strokes.map(stroke=>stroke.points?stroke:{...stroke,points:Array.from({length:25},(_,i)=>({x:stroke.center.x+Math.cos(i/24*Math.PI*2)*stroke.radiusX,y:stroke.center.y+Math.sin(i/24*Math.PI*2)*stroke.radiusY}))});
    const xs=frame.strokes.flatMap(stroke=>stroke.points.map(p=>p.x)),minimum=compact?Math.min(...xs):0;
-   const weights=leadingWeights(frame.strokes,'MW'.includes(character)?{originX:(Math.min(...xs)+Math.max(...xs))/2}:{});
+   const weights=leadingWeights(frame.strokes,'MWxX'.includes(character)?{originX:(Math.min(...xs)+Math.max(...xs))/2}:{});
    frame.strokes.forEach((stroke,s)=>strokes.push({weights:weights[s],delay:(text.length-1-index)*.18,points:stroke.points.map(p=>({x:p.x-minimum+advance,y:p.y}))}));advance+=compact?Math.max(...xs)-minimum+8:frame.advance;index++;
   }
   const points=strokes.flatMap(s=>s.points);
@@ -51,8 +51,8 @@ try{
  function draw(now){
   const {width,height,scale}=size,elapsed=(now-started)/520,step=200,dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
   if(!drag){const motion=coast(velocity,dt);manualOffset+=motion.distance;velocity=motion.velocity;driftOffset+=dt*width*.02;}
-  const drift=driftOffset+manualOffset;
   rows.forEach((row,r)=>{
+   const drift=driftOffset*Math.max(1,1/row.multiplier)+manualOffset;
    const time=elapsed*row.speed,cycle=Math.floor(time),rowScale=scale*row.multiplier,offset=((cycle*step*rowScale+drift)%row.period+row.period)%row.period,centerY=row.centerY;
    row.strokes.forEach((stroke,s)=>{
     const path=stroke.points.map((point,i)=>walkingPoint(point,{lead:stroke.weights[i],step,time:Math.max(0,time-stroke.delay)}));
