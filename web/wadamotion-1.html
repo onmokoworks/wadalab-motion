@@ -5,8 +5,19 @@
 <a href="/workspace/" aria-label="workspaceへ戻る">←</a><svg role="img" aria-label="The quick brown fox jumps over the lazy dogを一単語ずつ縦に並べた歩行アニメーション"></svg><p id="error" role="status"></p>
 <script type="module">
 import {createMotionLibrary} from '/motion-library.js';
-import {walkingPoint,leadingWeights} from '/walk-core.js';
+import {walkingPoint,leadingWeights,coast} from '/walk-core.js';
 const svg=document.querySelector('svg');
+svg.style.touchAction='none';svg.style.cursor='grab';
+let manualOffset=0,velocity=0,drag=null,driftOffset=0,lastFrame=performance.now();
+svg.addEventListener('pointerdown',event=>{if(event.button!==0)return;svg.setPointerCapture(event.pointerId);drag={id:event.pointerId,x:event.clientX,time:performance.now()};velocity=0;svg.style.cursor='grabbing';});
+svg.addEventListener('pointermove',event=>{
+ if(!drag||event.pointerId!==drag.id)return;
+ const now=performance.now(),dx=event.clientX-drag.x,dt=(now-drag.time)/1000;
+ manualOffset+=dx;if(dt>0)velocity=velocity*.3+Math.max(-2400,Math.min(2400,dx/dt))*.7;
+ drag={id:drag.id,x:event.clientX,time:now};
+});
+function release(event){if(!drag||event.pointerId!==drag.id)return;if(performance.now()-drag.time>100)velocity=0;drag=null;svg.style.cursor='grab';}
+svg.addEventListener('pointerup',release);svg.addEventListener('pointercancel',event=>{velocity=0;release(event);});
 try{
  const names={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
  const data=Object.fromEntries(await Promise.all(Object.entries(names).map(async([name,path])=>{const response=await fetch(new URL(path,new URL('/motion-library.js',location.href)));if(!response.ok)throw new Error(response.status);return [name,await response.json()];})));
@@ -38,9 +49,11 @@ try{
  }
  resize();addEventListener('resize',resize);
  function draw(now){
-  const {width,height,scale}=size,elapsed=(now-started)/520,step=200,drift=(now-started)/1000*width*.02;
+  const {width,height,scale}=size,elapsed=(now-started)/520,step=200,dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
+  if(!drag){const motion=coast(velocity,dt);manualOffset+=motion.distance;velocity=motion.velocity;driftOffset+=dt*width*.02;}
+  const drift=driftOffset+manualOffset;
   rows.forEach((row,r)=>{
-   const time=elapsed*row.speed,cycle=Math.floor(time),rowScale=scale*row.multiplier,offset=(cycle*step*rowScale+drift)%row.period,centerY=row.centerY;
+   const time=elapsed*row.speed,cycle=Math.floor(time),rowScale=scale*row.multiplier,offset=((cycle*step*rowScale+drift)%row.period+row.period)%row.period,centerY=row.centerY;
    row.strokes.forEach((stroke,s)=>{
     const path=stroke.points.map((point,i)=>walkingPoint(point,{lead:stroke.weights[i],step,time:Math.max(0,time-stroke.delay)}));
     row.copies.forEach((nodes,copy)=>nodes[s].setAttribute('d',path.map((p,i)=>`${i?'L':'M'}${(p.x-row.left-cycle*step)*rowScale+offset+(copy-1)*row.period},${centerY+(p.y-(row.top+row.bottom)/2)*rowScale}`).join(' ')));

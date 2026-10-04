@@ -1,4 +1,8 @@
 const smooth=value=>{const t=Math.max(0,Math.min(1,value));return t*t*t*(t*(t*6-15)+10);};
+export function coast(velocity,seconds){
+ const decay=Math.exp(-seconds/1.8);
+ return {velocity:velocity*decay,distance:velocity*1.8*(1-decay)};
+}
 // First extend the front while the rear stays planted, then pull the rear in.
 // The front finishes before catch-up starts. Each cycle restores the glyph.
 export function walkingPoint(point,{lead=0,step,time}){
