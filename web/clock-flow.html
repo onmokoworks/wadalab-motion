@@ -3,10 +3,10 @@
 <a href="/workspace/" aria-label="workspaceへ戻る">←</a><svg role="timer" aria-live="off"></svg><p id="error"></p>
 <script type="module">
 import {SourceEngine} from '/source-engine.js';
-import {prepareGlyph,dotGeometry} from '/motion-library.js';
+
 import {coast} from '/walk-core.js';
 import {clockMotion,formatClock} from '/clock-core.js';
-import {buildMorph,morphPaths} from '/clock-flow-core.js';
+import {createClockMotion} from '/clock-flow-core.js';
 const svg=document.querySelector('svg'),NS='http://www.w3.org/2000/svg';
 let drag=null,manualOffset=0,velocity=0,lastFrame=performance.now(),distance=0;
 svg.addEventListener('pointerdown',e=>{if(e.button!==0)return;svg.setPointerCapture(e.pointerId);drag={id:e.pointerId,x:e.clientX,time:performance.now()};velocity=0;});
@@ -15,12 +15,7 @@ svg.addEventListener('pointerup',()=>{if(drag&&performance.now()-drag.time>100)v
 try{
  const names={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
  const data=Object.fromEntries(await Promise.all(Object.entries(names).map(async([k,p])=>{const response=await fetch(new URL(p,new URL('/motion-library.js',location.href)));if(!response.ok)throw Error(response.status);return [k,await response.json()];})));
- const engine=new SourceEngine(data.program,data.glyphs,data.ascii,data.alpha),glyphs=new Map();
- for(const ch of '0123456789:'){
-  const paths=engine.closeLoopPaths(prepareGlyph(engine,ch),0).map(piece=>{if(!piece.dotWidth)return piece.path;const d=dotGeometry(piece);return Array.from({length:25},(_,i)=>({x:d.center.x+Math.cos(i/24*Math.PI*2)*d.radiusX,y:d.center.y+Math.sin(i/24*Math.PI*2)*d.radiusY}));});
-  const xs=paths.flat().map(p=>p.x),center=(Math.min(...xs)+Math.max(...xs))/2;glyphs.set(ch,paths.map(path=>path.map(p=>({x:p.x-center+100,y:p.y}))));
- }
- const transitions=new Map();for(const a of '0123456789')for(const b of '0123456789')transitions.set(a+b,buildMorph(glyphs.get(a),glyphs.get(b)));
+ const engine=new SourceEngine(data.program,data.glyphs,data.ascii,data.alpha),motion=createClockMotion(engine);
  const rowSizes=[.45,1.1,.65,2,.3,1.5,.8,.4,1.8,.6,1,.35,1.3],rows=rowSizes.map((size,i)=>({size,phase:i*.19,speed:Math.max(1,1/size)}));
  let previous=formatClock(new Date()).ascii,current=previous,started=performance.now(),width,scale;
  function resize(){width=innerWidth;scale=Math.min(width/1900,innerHeight/3100);const total=rows.reduce((sum,row)=>sum+400*scale*row.size+4,0),height=Math.max(innerHeight,total+70);svg.style.height=`${height}px`;svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.replaceChildren();let y=(height-total)/2;
@@ -31,9 +26,9 @@ try{
   const dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
   if(!drag){const m=coast(velocity,dt);manualOffset+=m.distance;velocity=m.velocity;distance+=dt*width*.025;}
   const time=formatClock(new Date()).ascii;if(time!==current){previous=current;current=time;started=now;svg.setAttribute('aria-label',current);}
-  const progress=Math.min(1,(now-started)/(clockMotion.duration*1000));
+  const progress=Math.min(1,(now-started)/(clockMotion.duration*2*1000));
   // Compute each digit once; every repeated clock uses the same live paths.
-  const paths=[...current].map((ch,i)=>ch===previous[i]?glyphs.get(ch):morphPaths(transitions.get(previous[i]+ch),progress));
+  const paths=[...current].map((ch,i)=>motion.transition(previous[i],ch,progress));
   for(const row of rows){const offset=((distance*row.speed+manualOffset+row.phase*row.period)%row.period+row.period)%row.period;
    row.copies.forEach((slots,copy)=>slots.forEach((group,i)=>{
     const pieces=paths[i];while(group.children.length<pieces.length){const node=document.createElementNS(NS,'path');node.setAttribute('stroke-width',Math.max(1.3,Math.min(2.8,width/500)));group.append(node);}
