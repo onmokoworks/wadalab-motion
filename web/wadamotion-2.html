@@ -1,45 +1,74 @@
-<!doctype html><html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>Wadamotion-2 — clocks</title><link rel="icon" href="data:,">
-<style>html,body{margin:0;background:#fff;color:#111;overflow-x:hidden}svg{display:block;width:100%;touch-action:pan-y}path{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}a{position:absolute;top:18px;left:20px;color:#999;text-decoration:none;font:14px monospace}#error{font:14px monospace}</style>
-<a href="/workspace/" aria-label="workspaceへ戻る">←</a><svg role="timer" aria-live="off"></svg><p id="error"></p>
+<!doctype html>
+<html lang="ja"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Wadamotion-2 — unfold</title><link rel="icon" href="data:,">
+<style>html,body{margin:0;width:100%;min-height:100%;background:#fff;overflow-x:hidden;color:#111}svg{display:block;width:100%;height:100%}path{fill:none;stroke:currentColor;stroke-linecap:round;stroke-linejoin:round;vector-effect:non-scaling-stroke}a{position:absolute;top:18px;left:20px;color:#999;text-decoration:none;font:14px monospace}#error{position:absolute;bottom:20px;left:20px;font:14px monospace}</style>
+<a href="/workspace/" aria-label="workspaceへ戻る">←</a><svg role="img" aria-label="TEST、onmk.work、MOTION、Wadalab fontの下にThe quick brown fox jumps over the lazy dogを単語ごとに並べた展開しながら右へ進むアニメーション"></svg><p id="error" role="status"></p>
 <script type="module">
 import {SourceEngine} from '/source-engine.js';
 import {prepareGlyph,dotGeometry} from '/motion-library.js';
 import {coast} from '/walk-core.js';
-import {clockMotion,formatClock} from '/clock-core.js';
-import {buildMorph,morphPaths} from '/clock-flow-core.js';
-const svg=document.querySelector('svg'),NS='http://www.w3.org/2000/svg';
-let drag=null,manualOffset=0,velocity=0,lastFrame=performance.now(),distance=0;
-svg.addEventListener('pointerdown',e=>{if(e.button!==0)return;svg.setPointerCapture(e.pointerId);drag={id:e.pointerId,x:e.clientX,time:performance.now()};velocity=0;});
-svg.addEventListener('pointermove',e=>{if(!drag||drag.id!==e.pointerId)return;const now=performance.now(),dx=e.clientX-drag.x,dt=(now-drag.time)/1000;manualOffset+=dx;if(dt>0)velocity=.3*velocity+.7*Math.max(-2400,Math.min(2400,dx/dt));drag={id:e.pointerId,x:e.clientX,time:now};});
-svg.addEventListener('pointerup',()=>{if(drag&&performance.now()-drag.time>100)velocity=0;drag=null;});svg.addEventListener('pointercancel',()=>{drag=null;velocity=0;});
+import {createUnfoldRig,unfoldPaths} from '/unfold-step.js';
+const svg=document.querySelector('svg');
+function dotPoints(piece){const dot=dotGeometry(piece);return Array.from({length:25},(_,i)=>({x:dot.center.x+Math.cos(i/24*Math.PI*2)*dot.radiusX,y:dot.center.y+Math.sin(i/24*Math.PI*2)*dot.radiusY}));}
+svg.style.touchAction='pan-y';svg.style.cursor='grab';
+let manualOffset=0,velocity=0,drag=null,driftOffset=0,lastFrame=performance.now();
+svg.addEventListener('pointerdown',event=>{if(event.button!==0)return;svg.setPointerCapture(event.pointerId);drag={id:event.pointerId,x:event.clientX,time:performance.now()};velocity=0;svg.style.cursor='grabbing';});
+svg.addEventListener('pointermove',event=>{
+ if(!drag||event.pointerId!==drag.id)return;
+ const now=performance.now(),dx=event.clientX-drag.x,dt=(now-drag.time)/1000;
+ manualOffset+=dx;if(dt>0)velocity=velocity*.3+Math.max(-2400,Math.min(2400,dx/dt))*.7;
+ drag={id:drag.id,x:event.clientX,time:now};
+});
+function release(event){if(!drag||event.pointerId!==drag.id)return;if(performance.now()-drag.time>100)velocity=0;drag=null;svg.style.cursor='grab';}
+svg.addEventListener('pointerup',release);svg.addEventListener('pointercancel',event=>{velocity=0;release(event);});
 try{
  const names={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
- const data=Object.fromEntries(await Promise.all(Object.entries(names).map(async([k,p])=>{const response=await fetch(new URL(p,new URL('/motion-library.js',location.href)));if(!response.ok)throw Error(response.status);return [k,await response.json()];})));
- const engine=new SourceEngine(data.program,data.glyphs,data.ascii,data.alpha),glyphs=new Map();
- for(const ch of '0123456789:'){
-  const paths=engine.closeLoopPaths(prepareGlyph(engine,ch),0).map(piece=>{if(!piece.dotWidth)return piece.path;const d=dotGeometry(piece);return Array.from({length:25},(_,i)=>({x:d.center.x+Math.cos(i/24*Math.PI*2)*d.radiusX,y:d.center.y+Math.sin(i/24*Math.PI*2)*d.radiusY}));});
-  const xs=paths.flat().map(p=>p.x),center=(Math.min(...xs)+Math.max(...xs))/2;glyphs.set(ch,paths.map(path=>path.map(p=>({x:p.x-center+100,y:p.y}))));
+ const data=Object.fromEntries(await Promise.all(Object.entries(names).map(async([name,path])=>{const response=await fetch(new URL(path,new URL('/motion-library.js',location.href)));if(!response.ok)throw new Error(response.status);return [name,await response.json()];})));
+ const engine=new SourceEngine(data.program,data.glyphs,data.ascii,data.alpha),prepared=new Map(),rows=[],compact=new URLSearchParams(location.search).get('spacing')==='compact';
+ for(const [text,multiplier,speed,linearSpeed] of [['TEST',1,1],['onmk.work',.5,2],['MOTION',1,1],['Wadalab font',2,1],['The quick brown fox jumps over the lazy dog',.25,3,2],['The',2,1],['quick',.5,3],['brown',1.35,.8],['fox',.75,1.8],['jumps',1.15,1.4],['over',.65,2],['the',1,.75],['lazy',1.5,.6],['dog',.9,1.6]]){
+  const strokes=[],glyphs=[];let advance=0,index=0;
+  for(const character of text){
+   if(character===' '){advance+=compact?100:220;index++;continue;}
+   if(!prepared.has(character))prepared.set(character,prepareGlyph(engine,character));
+   const glyph=prepared.get(character);if(glyph.outlineOnly)throw new Error('文字の線データがありません');
+   const posed=engine.closeLoopPaths(glyph,0);
+   const paths=posed.map(piece=>piece.dotWidth?dotPoints(piece):piece.path);
+   const xs=paths.flatMap(path=>path.map(p=>p.x)),minimum=compact?Math.min(...xs):0;
+   const rig=createUnfoldRig(paths);
+   glyphs.push({glyph,paths,rig,advance:advance-minimum,delay:(text.length-1-index)*.18,start:strokes.length});
+   paths.forEach(path=>strokes.push({points:path.map(p=>({x:p.x-minimum+advance,y:p.y}))}));advance+=compact?Math.max(...xs)-minimum+8:glyph.advance*400;index++;
+
+  }
+  const points=strokes.flatMap(s=>s.points);
+  rows.push({text,multiplier,speed,linearSpeed:linearSpeed??Math.max(1,1/multiplier),glyphs,strokes,left:Math.min(...points.map(p=>p.x)),right:Math.max(...points.map(p=>p.x)),top:Math.min(...points.map(p=>p.y)),bottom:Math.max(...points.map(p=>p.y))});
  }
- const transitions=new Map();for(const a of '0123456789')for(const b of '0123456789')transitions.set(a+b,buildMorph(glyphs.get(a),glyphs.get(b)));
- const rowSizes=[.45,1.1,.65,2,.3,1.5,.8,.4,1.8,.6,1,.35,1.3],rows=rowSizes.map((size,i)=>({size,phase:i*.19,speed:Math.max(1,1/size)}));
- let previous=formatClock(new Date()).ascii,current=previous,started=performance.now(),width,scale;
- function resize(){width=innerWidth;scale=Math.min(width/1900,innerHeight/3100);const total=rows.reduce((sum,row)=>sum+400*scale*row.size+4,0),height=Math.max(innerHeight,total+70);svg.style.height=`${height}px`;svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.replaceChildren();let y=(height-total)/2;
-  for(const row of rows){row.scale=scale*row.size;row.y=y;y+=400*row.scale+4;row.period=1780*row.scale;row.copies=Array.from({length:Math.ceil(width/row.period)+3},()=>Array.from({length:8},()=>{const g=document.createElementNS(NS,'g');svg.append(g);return g;}));}
+ const started=performance.now();let size;
+ function resize(){
+  const width=innerWidth,scale=Math.min(width/2400,innerHeight/2600),lineWidth=Math.max(1.4,Math.min(3,width/450));
+  const gap=4,totalHeight=rows.reduce((sum,row)=>sum+(row.bottom-row.top)*scale*row.multiplier,0)+gap*(rows.length-1),height=Math.max(innerHeight,totalHeight+90);let y=(height-totalHeight)/2;
+  size={width,height,scale};svg.style.height=`${height}px`;svg.setAttribute('viewBox',`0 0 ${width} ${height}`);svg.replaceChildren();
+  for(const row of rows){
+   const rowHeight=(row.bottom-row.top)*scale*row.multiplier;row.centerY=y+rowHeight/2;y+=rowHeight+gap;
+   const rowScale=scale*row.multiplier;
+   row.distance=Math.min(120,Math.max(...row.glyphs.map(item=>item.rig.step)));
+   row.period=(row.right-row.left+(compact?40:440))*rowScale;
+   row.copies=Array.from({length:Math.ceil(width/row.period)+3},()=>row.strokes.map(stroke=>{const node=document.createElementNS('http://www.w3.org/2000/svg','path');node.setAttribute('stroke-width',lineWidth);svg.append(node);return node;}));
+  }
  }
  resize();addEventListener('resize',resize);
  function draw(now){
-  const dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
-  if(!drag){const m=coast(velocity,dt);manualOffset+=m.distance;velocity=m.velocity;distance+=dt*width*.025;}
-  const time=formatClock(new Date()).ascii;if(time!==current){previous=current;current=time;started=now;svg.setAttribute('aria-label',current);}
-  const progress=Math.min(1,(now-started)/(clockMotion.duration*1000));
-  // Compute each digit once; every repeated clock uses the same live paths.
-  const paths=[...current].map((ch,i)=>ch===previous[i]?glyphs.get(ch):morphPaths(transitions.get(previous[i]+ch),progress));
-  for(const row of rows){const offset=((distance*row.speed+manualOffset+row.phase*row.period)%row.period+row.period)%row.period;
-   row.copies.forEach((slots,copy)=>slots.forEach((group,i)=>{
-    const pieces=paths[i];while(group.children.length<pieces.length){const node=document.createElementNS(NS,'path');node.setAttribute('stroke-width',Math.max(1.3,Math.min(2.8,width/500)));group.append(node);}
-    for(let s=0;s<group.children.length;s++){const path=pieces[s];group.children[s].setAttribute('d',path?path.map((p,j)=>`${j?'L':'M'}${(p.x+i*200)*row.scale+offset+(copy-1)*row.period},${p.y*row.scale+row.y}`).join(' '):'');}
-   }));
-  }requestAnimationFrame(draw);
- }svg.setAttribute('aria-label',current);requestAnimationFrame(draw);
-}catch(e){document.querySelector('#error').textContent=`読み込みに失敗しました：${e.message}`;}
+  const {width,height,scale}=size,elapsed=(now-started)/1250,step=120,dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
+  if(!drag){const motion=coast(velocity,dt);manualOffset+=motion.distance;velocity=motion.velocity;driftOffset+=dt*width*.02;}
+  rows.forEach((row,r)=>{
+   const drift=driftOffset*row.linearSpeed+manualOffset;
+   const time=elapsed*row.speed,cycle=Math.floor(time),rowScale=scale*row.multiplier,offset=((cycle*row.distance*rowScale+drift)%row.period+row.period)%row.period,centerY=row.centerY;
+   row.glyphs.forEach(item=>{
+    const paths=unfoldPaths(item.paths,item.rig,Math.max(0,time-item.delay),row.distance);
+    paths.forEach((path,s)=>{
+     row.copies.forEach((nodes,copy)=>nodes[item.start+s].setAttribute('d',path.map((p,i)=>`${i?'L':'M'}${(p.x+item.advance-row.left-cycle*row.distance)*rowScale+offset+(copy-1)*row.period},${centerY+(p.y-(row.top+row.bottom)/2)*rowScale}`).join(' ')));
+    });
+   });
+  });requestAnimationFrame(draw);
+ }requestAnimationFrame(draw);
+}catch(reason){document.querySelector('#error').textContent=`読み込みに失敗しました：${reason.message}`;}
 </script></html>
