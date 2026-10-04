@@ -35,3 +35,13 @@ export function arcPosition(from,to,progress){
  const p=Math.max(0,Math.min(1,progress)),t=p*p*(3-2*p);
  return {x:from+(to-from)*t,y:-Math.min(110,Math.abs(to-from)*.38)*Math.sin(Math.PI*t)};
 }
+export function travelMorph(morph,fromX,toX,progress){
+ const offset=(paths,x)=>paths.map(path=>path.map(p=>({x:p.x+x,y:p.y})));
+ if(progress<=0)return offset(morph.from,fromX);if(progress>=1)return offset(morph.to,toX);
+ const xs=morph.from.flat().map(p=>p.x),left=Math.min(...xs),width=Math.max(1,Math.max(...xs)-left),height=Math.min(110,Math.abs(toX-fromX)*.38);
+ return morph.pairs.map(([a,b])=>a.map((p,i)=>{
+  // Shared source coordinates get the same phase; the right edge leads.
+  const lead=Math.max(0,Math.min(1,(p.x-left)/width)),q=Math.max(0,Math.min(1,progress*1.25-(1-lead)*.25)),t=q*q*(3-2*q);
+  return {x:p.x+fromX+(b[i].x+toX-p.x-fromX)*t,y:p.y+(b[i].y-p.y)*t-height*Math.sin(Math.PI*t)};
+ }));
+}

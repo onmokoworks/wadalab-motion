@@ -3,7 +3,7 @@
 <a href="/workspace/" aria-label="workspaceへ戻る">←</a><svg role="img" aria-label="文字が一文字ずつ弧を描いて右隣の位置と字形へ変わる"></svg><p id="error"></p>
 <script type="module">
 import {createMotionLibrary} from '/motion-library.js';
-import {buildMorph,morphPaths,morphSchedule,arcPosition} from '/glyph-morph.js';
+import {buildMorph,morphPaths,morphSchedule,travelMorph} from '/glyph-morph.js';
 const svg=document.querySelector('svg'),NS='http://www.w3.org/2000/svg';
 try{
  const names={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
@@ -26,9 +26,9 @@ try{
  function draw(now){const elapsed=(now-started)/1000;
   for(const slot of slots){const row=slot.row,n=row.characters.length,state=morphSchedule(elapsed,n,1,.18),shift=state.round+(slot.index<state.active?1:0),from=row.characters[(slot.index+shift)%n],to=row.characters[(slot.index+shift+1)%n],progress=slot.index===state.active?state.progress:0,key=from+to;
    if(!transitions.has(key))transitions.set(key,buildMorph(glyphs.get(from),glyphs.get(to)));
-   const paths=morphPaths(transitions.get(key),progress),group=slot.group,origin=row.slots[(slot.index+shift)%n].x,target=row.slots[(slot.index+shift+1)%n].x,position=arcPosition(origin,target,progress);
+   const origin=row.slots[(slot.index+shift)%n].x,target=row.slots[(slot.index+shift+1)%n].x,paths=travelMorph(transitions.get(key),origin,target,progress),group=slot.group;
    while(group.children.length<paths.length){const path=document.createElementNS(NS,'path');path.setAttribute('stroke-width',Math.max(1.3,Math.min(2.8,innerWidth/500)));group.append(path);}
-   for(let s=0;s<group.children.length;s++){const path=paths[s],length=path?.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-path[i].x,p.y-path[i].y),0);group.children[s].setAttribute('d',length>1e-6?path.map((p,i)=>`${i?'L':'M'}${row.left+(position.x+p.x)*row.scale},${row.y+(p.y+position.y)*row.scale}`).join(' '):'');}
+   for(let s=0;s<group.children.length;s++){const path=paths[s],length=path?.slice(1).reduce((sum,p,i)=>sum+Math.hypot(p.x-path[i].x,p.y-path[i].y),0);group.children[s].setAttribute('d',length>1e-6?path.map((p,i)=>`${i?'L':'M'}${row.left+p.x*row.scale},${row.y+p.y*row.scale}`).join(' '):'');}
   }requestAnimationFrame(draw);
  }requestAnimationFrame(draw);
 }catch(e){document.querySelector('#error').textContent=`読み込みに失敗しました：${e.message}`;}

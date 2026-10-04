@@ -26,3 +26,8 @@ for(const count of [3,4,9])for(const tick of [0,count-1,count,count+1]){
  const positions=Array.from({length:count},(_,i)=>(i+state.round+(i<state.active?1:0))%count);
  if(state.active===0)assert.equal(new Set(positions).size,count);
 }
+const {travelMorph}=await import('./web/glyph-morph.js');
+const straight=[[{x:0,y:0},{x:100,y:0}]],travel=buildMorph(straight,straight);
+assert.deepEqual(travelMorph(travel,0,220,0),straight);
+assert.deepEqual(travelMorph(travel,0,220,1),[[{x:220,y:0},{x:320,y:0}]]);
+const moving=travelMorph(travel,0,220,.2)[0];assert.equal(moving[0].x,0);assert.ok(moving.at(-1).x>100);
