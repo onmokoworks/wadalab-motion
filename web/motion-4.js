@@ -23,9 +23,12 @@ const clamp=v=>Math.max(0,Math.min(1,v)),cache=new Map();
 // Varied row sizes, with bounded right-to-left drift; no glyph stretching.
 const rows=[[.95,1],[.48,1.7],[.82,.85],[1.6,.7],[.18,2.4],[1.35,.9],[.62,2.1],[1.05,1.15],[.78,1.5],[1.45,.8],[.38,2.2],[.88,1.3],[1.15,.95],[.55,1.9]];
 const duration=.48,stagger=.10,hold=.7;
-const referenceTexts=["TEST","onmk.work","MOTION","Wadalab font","The quick brown fox jumps over the lazy dog","The","quick","brown","fox","jumps","over","the","lazy","dog"];
-const rowBounds=referenceTexts.map(text=>{const points=[...text].filter(c=>c!==" ").flatMap(c=>getGlyph(c).rest.flatMap(p=>p.dotWidth?[{y:p.path[0].y},{y:p.path[0].y+p.dotWidth}]:p.path));return {top:Math.min(...points.map(p=>p.y)),bottom:Math.max(...points.map(p=>p.y))};});
-let time=0,last=0,active=[],index=0,next=0,width=0,height=0,scale=0;
+// Japanese glyphs use a 400-unit em. English sample heights made adjacent
+// Japanese rows overlap, especially above the large rows.
+const rowBounds=rows.map(()=>({top:0,bottom:400}));
+const requestedStart=typeof location==='object'?Number(new URLSearchParams(location.search).get('start')):0;
+const initialIndex=Number.isInteger(requestedStart)&&requestedStart>=0&&requestedStart<story.phrases.length?requestedStart:0;
+let time=0,last=0,active=[],index=initialIndex,next=0,width=0,height=0,scale=0;
 let manualOffset=0,velocity=0,drag=null,drift=0;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function resize(){
@@ -56,7 +59,11 @@ function getGlyph(character){
   for(const point of piece.path){envelope.push(point.x-(piece.dotWidth??0)/2,point.x+(piece.dotWidth??0)/2);vertical.push(point.y,point.y+(piece.dotWidth??0));}
  }
  if(inkPoints)for(const p of inkPoints){envelope.push(p.x);vertical.push(p.y);}
- const value={glyph,rest,inkPoints,left,width:right-left,minX:Math.min(...envelope)-8,maxX:Math.max(...envelope)+8,minY:Math.min(...vertical)-16,maxY:Math.max(...vertical)+16};cache.set(character,value);return value;
+ // Animated contours extend beyond their centreline. Reserve the full
+ // attachment radius so the following sentence cannot enter that space early.
+ const contourBindings=sourceOutlines&&!glyph.outlineOnly?bindContours({glyph,rest}):null;
+ const radius=contourBindings?Math.max(8,...contourBindings.flatMap(e=>(e.bindings??[]).filter(Boolean).map(b=>Math.hypot(b.along,b.normal)))):8;
+ const value={glyph,rest,inkPoints,contourBindings,left,width:right-left,minX:Math.min(...envelope)-radius,maxX:Math.max(...envelope)+radius,minY:Math.min(...vertical)-Math.max(16,radius),maxY:Math.max(...vertical)+Math.max(16,radius)};cache.set(character,value);return value;
 }
 let warmupPending=false;
 function prewarmNext(){
@@ -185,6 +192,8 @@ function render(mode){
   const rowScale=scale*multiplier,rowHeight=(rowBounds[rowIndex].bottom-rowBounds[rowIndex].top)*rowScale,centerY=y+rowHeight/2;y+=rowHeight+4;
   // Keep partially visible rows; omit only rows entirely outside the viewport.
   if(centerY+(maxY-200)*rowScale+lineWidth<0||centerY+(minY-200)*rowScale-lineWidth>innerHeight)continue;
+  // Confine animated strokes to their own row; keep the existing row sizes.
+  ctx.save();ctx.beginPath();ctx.rect(0,centerY-rowHeight/2-1,width,rowHeight+2);ctx.clip();
   const driftX=-drift*speed+manualOffset;
   for(const sentence of active){
    const period=(sentence.width+180)*rowScale,offset=((driftX%period)+period)%period,timing=sentence.timing[rowIndex];
@@ -207,6 +216,7 @@ function render(mode){
     }
    });
   }
+  ctx.restore();
  }
 }
 // Every diagnostic phase replays the same opening from the same state.

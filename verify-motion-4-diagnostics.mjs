@@ -26,7 +26,7 @@ assert.deepEqual(attributeLongFrames([10,30],[{startTime:5,duration:60},{startTi
 const phrases=JSON.parse(await fs.readFile('web/night-one.json','utf8')).phrases;
 let counts,resets=0,queue=[],now=1000;
 const noop=()=>{},offscreen={setTransform:noop,stroke:noop,fill:noop};
-const main={setTransform:noop,save:noop,restore:noop,translate:noop,scale:noop,setLineDash:noop,
+const main={beginPath:noop,rect:noop,clip:noop,setTransform:noop,save:noop,restore:noop,translate:noop,scale:noop,setLineDash:noop,
  stroke(){counts.stroke++;},fill(){counts.stroke++;},drawImage(){counts.image++;},clearRect(){counts.clear++;}};
 function element(tagName){
  return {tagName,style:{},hidden:false,disabled:false,textContent:'',value:'',width:0,height:0,children:[],listeners:{},

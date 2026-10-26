@@ -5,8 +5,22 @@ function pathMeasure(path){
  const lengths=[0];for(let i=1;i<path.length;i++)lengths.push(lengths[i-1]+Math.hypot(path[i].x-path[i-1].x,path[i].y-path[i-1].y));
  return {path,lengths,total:lengths.at(-1)};
 }
+// Bind points on the curve rather than off-curve Bezier handles. Transporting
+// handles through different stroke segments can create loops and overshoots.
+function sampledContour(d){
+ let current={x:0,y:0},start=current;
+ return [...d.matchAll(/([MLCZ])([^MLCZ]*)/g)].map(([,command,args])=>{
+  const n=(args.match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi)??[]).map(Number);
+  if(command==='Z'){current=start;return 'Z';}
+  if(command==='M'||command==='L'){current={x:n[0],y:n[1]};if(command==='M')start=current;return command+n.join(' ');}
+  const a=current,b={x:n[0],y:n[1]},c={x:n[2],y:n[3]},z={x:n[4],y:n[5]};let result='';
+  for(let i=1;i<=8;i++){const t=i/8,u=1-t;result+='L'+(u*u*u*a.x+3*u*u*t*b.x+3*u*t*t*c.x+t*t*t*z.x)+' '+(u*u*u*a.y+3*u*u*t*b.y+3*u*t*t*c.y+t*t*t*z.y);}
+  current=z;return result;
+ }).join('');
+}
 export function bindContours(data){
- return data.glyph.restEntries.map(entry=>{
+ return data.glyph.restEntries.map(source=>{
+  const entry={...source,d:sampledContour(source.d)};
   const piece=data.rest.find(p=>p.stroke===entry.stroke),path=piece?.path;
   if(!path||path.length<2)return {d:entry.d,stroke:entry.stroke,bindings:null};
   const measured=pathMeasure(path),values=entry.d.match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi).map(Number),bindings=[];

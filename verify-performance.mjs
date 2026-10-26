@@ -7,7 +7,8 @@ class TestPath {
  constructor(){counts.paths++;}
  moveTo(){counts.points++;} lineTo(){counts.points++;} ellipse(){counts.points++;}
 }
-const ctx={setTransform(){},save(){},restore(){},translate(){},scale(){},beginPath(){},rect(){},clip(){},setLineDash(){},
+let rowRects=[];
+const ctx={setTransform(){},save(){},restore(){},translate(){},scale(){},beginPath(){},rect(x,y,w,h){rowRects.push({y,h});},clip(){},setLineDash(){},
  moveTo(){counts.points++;},lineTo(){counts.points++;},ellipse(){counts.points++;},
  stroke(){counts.strokes++;},fill(){counts.fills++;},drawImage(){counts.images++;},clearRect(x,y,w,h){counts.clearedPixels+=w*h;}};
 const makeCanvas=()=>({style:{},width:0,height:0,getContext:()=>ctx,addEventListener(){},setAttribute(){}});
@@ -19,7 +20,7 @@ Object.assign(globalThis,{innerWidth:3840,innerHeight:2160,devicePixelRatio:Numb
 const init=performance.now();await import('./web/'+(process.argv[2]||'motion-4.js'));
 const initializeMs=performance.now()-init;for(const key of Object.keys(counts))counts[key]=0;
 const timings=[];
-for(let i=0;i<900;i++){const start=performance.now();frame(1+i*1000/60);timings.push(performance.now()-start);}
+for(let i=0;i<900;i++){const start=performance.now();rowRects=[];frame(1+i*1000/60);for(let r=1;r<rowRects.length;r++)assert.ok(rowRects[r].y>=rowRects[r-1].y+rowRects[r-1].h,'Animated row bands must not overlap');timings.push(performance.now()-start);}
 timings.sort((a,b)=>a-b);
 console.log(JSON.stringify({initializeMs,frames:900,canvas:[canvas.width,canvas.height],cpuMs:timings.reduce((a,b)=>a+b,0),p95Ms:timings[855],counts},null,2));
 
