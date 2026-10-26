@@ -21,7 +21,7 @@ const sprites=new Map();let spriteBytes=0,pixelRatio=1;
 const spriteBudget=64*1024*1024;
 const clamp=v=>Math.max(0,Math.min(1,v)),cache=new Map();
 // Varied row sizes, with bounded right-to-left drift; no glyph stretching.
-const rows=[[.95,1],[.48,1.7],[.82,.85],[1.6,.7],[.18,2.4],[1.35,.9],[.62,2.1],[1.05,1.15],[.78,1.5],[1.45,.8],[.38,2.2],[.88,1.3],[1.15,.95],[.55,1.9]];
+const rows=[[.95,1],[.48,1.7],[.82,.85],[.24,2.2],[1.6,.7],[.18,2.4],[1.35,.9],[.62,2.1],[1.05,1.15],[.78,1.5],[1.45,.8],[.38,2.2],[.88,1.3],[1.15,.95],[.55,1.9]];
 const duration=.48,stagger=.10,hold=.7;
 // Japanese glyphs use a 400-unit em. English sample heights made adjacent
 // Japanese rows overlap, especially above the large rows.
