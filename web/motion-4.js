@@ -32,6 +32,10 @@ let time=0,last=0,active=[],index=initialIndex,next=0,width=0,height=0,scale=0;
 let manualOffset=0,velocity=0,drag=null,drift=0;
 const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function resize(){
+ if(width===innerWidth&&height===innerHeight&&pixelRatio===Math.min(devicePixelRatio,2))return;
+ // Repeat periods and collision windows change with the viewport. Discard
+ // old reservations and replay the current sentence at the new dimensions.
+ if(active.length){index=active.at(-1).phraseIndex;active=[];time=last=next=drift=manualOffset=velocity=0;drag=null;}
  width=innerWidth;scale=Math.min(width/2400,innerHeight/2600);
  const total=rows.reduce((n,r,i)=>n+(rowBounds[i].bottom-rowBounds[i].top)*scale*r[0],0)+4*(rows.length-1);
  height=innerHeight;
@@ -81,7 +85,7 @@ function prewarmNext(){
 function spawn(at){
  const characters=[...story.phrases[index]];
  const {positions,width:advance}=layoutText(characters,getGlyph);
- const sentence={characters,positions,width:advance,born:at,minY:Math.min(...characters.map(c=>getGlyph(c).minY)),maxY:Math.max(...characters.map(c=>getGlyph(c).maxY))};
+ const sentence={phraseIndex:index,characters,positions,width:advance,born:at,minY:Math.min(...characters.map(c=>getGlyph(c).minY)),maxY:Math.max(...characters.map(c=>getGlyph(c).maxY))};
  const extent=(text,rowScale)=>text.characters.map((c,i)=>{const g=getGlyph(c);return [(g.minX+text.positions[i])*rowScale,(g.maxX+text.positions[i])*rowScale];});
  sentence.timing=rows.map(([multiplier,speed],r)=>{
   const rowScale=scale*multiplier;
