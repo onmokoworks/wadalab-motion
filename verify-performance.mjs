@@ -23,4 +23,4 @@ for(let i=0;i<900;i++){const start=performance.now();frame(1+i*1000/60);timings.
 timings.sort((a,b)=>a-b);
 console.log(JSON.stringify({initializeMs,frames:900,canvas:[canvas.width,canvas.height],cpuMs:timings.reduce((a,b)=>a+b,0),p95Ms:timings[855],counts},null,2));
 
-if(!process.argv[2]){assert.equal(canvas.height,2160*devicePixelRatio);assert.ok(counts.points<2000000,'Do not rebuild offscreen/static glyph points');assert.ok(counts.strokes<400000,'Cull invisible repeats and batch strokes');console.log('4K rendering-work regression checks passed');}
+if(!process.argv[2]){assert.equal(canvas.height,2160*devicePixelRatio);assert.ok(counts.points<2000000,'Do not rebuild offscreen/static glyph points');assert.ok(counts.strokes<60000,'Reuse rasterized resting glyphs instead of stroking them each frame');console.log('4K rendering-work regression checks passed');}

@@ -14,6 +14,8 @@ const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
 const spacer=document.createElement('div');spacer.setAttribute('aria-hidden','true');document.body.append(spacer);
 Object.assign(canvas.style,{position:'fixed',top:'0',left:'0'});
 const maskPool=[];let masksUsed=0;
+const sprites=new Map();let spriteBytes=0,pixelRatio=1;
+const spriteBudget=64*1024*1024;
 const clamp=v=>Math.max(0,Math.min(1,v)),cache=new Map();
 // Varied row sizes, with bounded right-to-left drift; no glyph stretching.
 const rows=[[.95,1],[.48,1.7],[.82,.85],[1.6,.7],[.18,2.4],[1.35,.9],[.62,2.1],[1.05,1.15],[.78,1.5],[1.45,.8],[.38,2.2],[.88,1.3],[1.15,.95],[.55,1.9]];
@@ -27,7 +29,8 @@ function resize(){
  width=innerWidth;scale=Math.min(width/2400,innerHeight/2600);
  const total=rows.reduce((n,r,i)=>n+(rowBounds[i].bottom-rowBounds[i].top)*scale*r[0],0)+4*(rows.length-1);
  height=Math.max(innerHeight,total+90);
- const dpr=Math.min(devicePixelRatio,2);canvas.width=width*dpr;canvas.height=innerHeight*dpr;
+ sprites.clear();spriteBytes=0;
+ const dpr=pixelRatio=Math.min(devicePixelRatio,2);canvas.width=width*dpr;canvas.height=innerHeight*dpr;
  canvas.style.height=innerHeight+'px';spacer.style.height=height+'px';ctx.setTransform(dpr,0,0,dpr,0,0);
 
 }
@@ -112,6 +115,32 @@ function renderGlyph(data,progress,frameGeometry,character){
  }else result=compilePaths(engine.closeLoopPaths(data.glyph,1-progress));
  frameGeometry.set(key,result);return result;
 }
+// Rasterize completed glyphs once at their actual display resolution. Moving a
+// bitmap avoids tessellating and antialiasing hundreds of curved paths per frame.
+// LRU bounds storage across the whole story; resizing invalidates every sprite.
+function restSprite(data,character,rowScale,lineWidth,letter){
+ const key=character+':'+rowScale;
+ if(sprites.has(key)){const cached=sprites.get(key);sprites.delete(key);sprites.set(key,cached);return cached;}
+ const points=data.rest.flatMap(p=>p.dotWidth?
+  [{x:p.path[0].x-p.dotWidth/2,y:p.path[0].y},{x:p.path[0].x+p.dotWidth/2,y:p.path[0].y+p.dotWidth}]:p.path);
+ if(!points.length)return null;
+ const pad=lineWidth/2+2/pixelRatio;
+ const x=Math.floor((Math.min(...points.map(p=>p.x))*rowScale-pad)*pixelRatio)/pixelRatio;
+ const y=Math.floor((Math.min(...points.map(p=>p.y))*rowScale-pad)*pixelRatio)/pixelRatio;
+ const w=Math.ceil((Math.max(...points.map(p=>p.x))*rowScale+pad-x)*pixelRatio);
+ const h=Math.ceil((Math.max(...points.map(p=>p.y))*rowScale+pad-y)*pixelRatio);
+ const bytes=w*h*4;
+ if(w<=0||h<=0||bytes>spriteBudget)return null;
+ while(spriteBytes+bytes>spriteBudget&&sprites.size){const oldest=sprites.keys().next().value;spriteBytes-=sprites.get(oldest).bytes;sprites.delete(oldest);}
+ const image=document.createElement('canvas');image.width=w;image.height=h;
+ const pen=image.getContext('2d');
+ pen.setTransform(pixelRatio*rowScale,0,0,pixelRatio*rowScale,-x*pixelRatio,-y*pixelRatio);
+ pen.strokeStyle=pen.fillStyle='#111';pen.lineCap=pen.lineJoin='round';pen.lineWidth=lineWidth/rowScale;
+ if(letter.outline)pen.fill(letter.outline,'evenodd');
+ else{if(letter.hasStroke)pen.stroke(letter.stroke);if(letter.hasDots)pen.fill(letter.dots);}
+ const result={image,x,y,width:w/pixelRatio,height:h/pixelRatio,bytes};
+ sprites.set(key,result);spriteBytes+=bytes;return result;
+}
 function draw(now){
  const dt=last?Math.min(.05,(now-last)/1000):0;last=now;
  if(document.hidden){requestAnimationFrame(draw);return;}
@@ -138,7 +167,9 @@ function draw(now){
     const first=Math.ceil(-right/period),lastCopy=Math.floor((width-left)/period);
     if(first>lastCopy)return;
     const letter=renderGlyph(data,progress,frameGeometry,character);
+    const sprite=progress===1?restSprite(data,character,rowScale,lineWidth,letter):null;
     for(let copy=first;copy<=lastCopy;copy++){
+     if(sprite){ctx.drawImage(sprite.image,baseX+copy*period+sprite.x,centerY-200*rowScale+sprite.y,sprite.width,sprite.height);continue;}
      ctx.save();ctx.translate(baseX+copy*period,centerY-200*rowScale);ctx.scale(rowScale,rowScale);
      if(letter.outline){if(letter.image)ctx.drawImage(letter.image,0,0,400,400);else ctx.fill(letter.outline,'evenodd');}
      else{ctx.lineWidth=lineWidth/rowScale;if(letter.hasStroke)ctx.stroke(letter.stroke);if(letter.hasDots)ctx.fill(letter.dots);}
