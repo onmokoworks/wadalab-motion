@@ -9,6 +9,8 @@ import {coast} from './walk-core.js';
 
 
 const [program,glyphs,ascii,alpha,story]=await Promise.all(['source-program.json','source-glyphs.json','font/ascii-outlines.json','font/alpha-centerlines.json','night-one.json'].map(async path=>{const response=await fetch(new URL(path,import.meta.url));if(!response.ok)throw new Error('Failed to load '+path);return response.json();}));
+// Opt-in rendering A/B diagnostics; without ?diag=all nothing extra is loaded.
+const diagnosticsModule=typeof location==='object'&&new URLSearchParams(location.search).get('diag')==='all'?await import('./motion-4-diagnostics.js'):null;
 const engine=new SourceEngine(program,glyphs,ascii,alpha);
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
 const spacer=document.createElement('div');spacer.setAttribute('aria-hidden','true');document.body.append(spacer);
@@ -139,14 +141,24 @@ function restSprite(data,character,rowScale,lineWidth,letter){
  if(letter.outline)pen.fill(letter.outline,'evenodd');
  else{if(letter.hasStroke)pen.stroke(letter.stroke);if(letter.hasDots)pen.fill(letter.dots);}
  const result={image,x,y,width:w/pixelRatio,height:h/pixelRatio,bytes};
- sprites.set(key,result);spriteBytes+=bytes;return result;
+ sprites.set(key,result);spriteBytes+=bytes;diagnostics?.spriteCreated();return result;
 }
 function draw(now){
+ // Diagnostics may restart the story here, before dt is derived from `last`.
+ const mode=diagnostics?diagnostics.beforeFrame(now):null,started=diagnostics?performance.now():0;
  const dt=last?Math.min(.05,(now-last)/1000):0;last=now;
  if(document.hidden){requestAnimationFrame(draw);return;}
  if(!reduced){time+=dt;if(!drag){const m=coast(velocity,dt);manualOffset+=m.distance;velocity=m.velocity;drift+=dt*width*.025;}}
  if(time>=next)spawn(next);active=active.filter(s=>time<=s.end);
+ if(mode!=='idle')render(mode);
+ diagnostics?.afterFrame(started);
+ requestAnimationFrame(draw);
+}
+// mode is null in normal playback; diagnostics may limit drawing to one layer.
+function render(mode){
  ctx.clearRect(0,0,width,innerHeight);ctx.strokeStyle=ctx.fillStyle='#111';ctx.lineCap=ctx.lineJoin='round';
+ if(mode==='clear')return;
+ const skipLive=mode==='sprites',skipRest=mode==='live';
  const frameGeometry=new Map();masksUsed=0;
  const total=rows.reduce((n,r,i)=>n+(rowBounds[i].bottom-rowBounds[i].top)*scale*r[0],0)+4*(rows.length-1);let y=(height-total)/2;
  const minY=Math.min(0,...active.map(s=>s.minY)),maxY=Math.max(400,...active.map(s=>s.maxY));
@@ -160,7 +172,7 @@ function draw(now){
    const period=(sentence.width+180)*rowScale,offset=((driftX%period)+period)%period,timing=sentence.timing[rowIndex];
    sentence.characters.forEach((character,i)=>{
     const enter=clamp((time-timing.births[i])/duration),exit=clamp((time-timing.out-i*stagger)/duration),progress=exit>0?1-exit:enter;
-    if(progress<=0)return;
+    if(progress<=0||skipLive&&progress<1||skipRest&&progress===1)return;
     const data=getGlyph(character),baseX=sentence.positions[i]*rowScale+offset;
     // Include both contour and stroke extents; never cut a partially visible glyph.
     const left=baseX+data.minX*rowScale-lineWidth,right=baseX+data.maxX*rowScale+lineWidth;
@@ -178,6 +190,20 @@ function draw(now){
    });
   }
  }
- requestAnimationFrame(draw);
 }
+// Every diagnostic phase replays the same opening from the same state.
+function restartStory(){
+ time=0;last=0;active=[];index=0;next=0;drift=0;manualOffset=0;velocity=0;sprites.clear();spriteBytes=0;
+ ctx.clearRect(0,0,width,innerHeight);spawn(0);if(reduced)time=active[0].timing[0].out-.01;
+}
+// Build geometry before measuring so that no phase pays for first use.
+async function prepareAllGlyphs(report){
+ const characters=[...new Set(story.phrases.join(''))];
+ for(const [i,character] of characters.entries()){
+  const data=getGlyph(character);if(!data.glyph.outlineOnly)data.renderPaths??=compilePaths(data.rest);
+  if(i%8===7||i===characters.length-1){report(i+1,characters.length);await new Promise(resolve=>setTimeout(resolve));}
+ }
+}
+const diagnostics=diagnosticsModule?.mountDiagnostics({restart:restartStory,prepare:prepareAllGlyphs,isInteracting:()=>drag!==null,
+ viewport:()=>({cssWidth:innerWidth,cssHeight:innerHeight,devicePixelRatio,backingWidth:canvas.width,backingHeight:canvas.height,scrollY})})??null;
 spawn(0);if(reduced)time=active[0].timing[0].out-.01;requestAnimationFrame(draw);
