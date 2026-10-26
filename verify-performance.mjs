@@ -12,7 +12,7 @@ const ctx={setTransform(){},save(){},restore(){},translate(){},scale(){},beginPa
  stroke(){counts.strokes++;},fill(){counts.fills++;},drawImage(){counts.images++;},clearRect(x,y,w,h){counts.clearedPixels+=w*h;}};
 const makeCanvas=()=>({style:{},width:0,height:0,getContext:()=>ctx,addEventListener(){},setAttribute(){}});
 const canvas=makeCanvas();let frame;
-Object.assign(globalThis,{innerWidth:3840,innerHeight:2160,devicePixelRatio:Number(process.argv[3]||1),scrollY:0,Path2D:TestPath,
+Object.assign(globalThis,{innerWidth:3840,innerHeight:2160,devicePixelRatio:Number(process.argv[3]||1),scrollY:0,Path2D:TestPath,location:{search:process.argv.includes('--source')?'?outline=source':''},
  document:{hidden:false,querySelector:()=>canvas,createElement:makeCanvas,body:{append(){},style:{}}},
  addEventListener(){},matchMedia:()=>({matches:false}),requestAnimationFrame:f=>{frame=f;},
  fetch:async url=>({ok:true,json:async()=>JSON.parse(await fs.readFile(url,'utf8'))})});

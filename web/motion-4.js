@@ -11,9 +11,9 @@ import {coast} from './walk-core.js';
 const [program,glyphs,ascii,alpha,story]=await Promise.all(['source-program.json','source-glyphs.json','font/ascii-outlines.json','font/alpha-centerlines.json','night-one.json'].map(async path=>{const response=await fetch(new URL(path,import.meta.url));if(!response.ok)throw new Error('Failed to load '+path);return response.json();}));
 // Opt-in rendering A/B diagnostics; without ?diag=all nothing extra is loaded.
 const diagnosticsModule=typeof location==='object'&&new URLSearchParams(location.search).get('diag')==='all'?await import('./motion-4-diagnostics.js'):null;
+const sourceOutlines=typeof location==='object'&&new URLSearchParams(location.search).get('outline')==='source';
 const engine=new SourceEngine(program,glyphs,ascii,alpha);
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d');
-const spacer=document.createElement('div');spacer.setAttribute('aria-hidden','true');document.body.append(spacer);
 Object.assign(canvas.style,{position:'fixed',top:'0',left:'0'});
 const maskPool=[];let masksUsed=0;
 const sprites=new Map();let spriteBytes=0,pixelRatio=1;
@@ -30,10 +30,10 @@ const reduced=matchMedia('(prefers-reduced-motion: reduce)').matches;
 function resize(){
  width=innerWidth;scale=Math.min(width/2400,innerHeight/2600);
  const total=rows.reduce((n,r,i)=>n+(rowBounds[i].bottom-rowBounds[i].top)*scale*r[0],0)+4*(rows.length-1);
- height=Math.max(innerHeight,total+90);
+ height=innerHeight;
  sprites.clear();spriteBytes=0;
  const dpr=pixelRatio=Math.min(devicePixelRatio,2);canvas.width=width*dpr;canvas.height=innerHeight*dpr;
- canvas.style.height=innerHeight+'px';spacer.style.height=height+'px';ctx.setTransform(dpr,0,0,dpr,0,0);
+ canvas.style.height=innerHeight+'px';ctx.setTransform(dpr,0,0,dpr,0,0);
 
 }
 addEventListener('resize',resize);resize();
@@ -43,7 +43,8 @@ function release(event){if(!drag||drag.id!==event.pointerId)return;if(performanc
 canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercancel',event=>{velocity=0;release(event);});
 function getGlyph(character){
  if(cache.has(character))return cache.get(character);
- const glyph=prepareGlyph(engine,character),rest=engine.closeLoopPaths(glyph,0);
+ const glyph={...prepareGlyph(engine,character)},rest=engine.closeLoopPaths(glyph,0);
+ if(sourceOutlines)glyph.outlineOnly=true;
  // Source contours use M/L/C coordinates. Their control-point hull also
  // bounds curved caps, which a centreline-only sprite box would clip.
  const inkPoints=glyph.outlineOnly?glyph.restEntries.flatMap(entry=>{const n=entry.d.match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi).map(Number);return Array.from({length:n.length/2},(_,i)=>({x:n[i*2],y:n[i*2+1]}));}):null;
@@ -99,6 +100,11 @@ function compilePaths(pieces){
  }
  return {stroke,dots,hasStroke,hasDots};
 }
+function contourLength(d){
+ const n=d.match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi).map(Number);let length=0;
+ for(let i=2;i<n.length;i+=2)length+=Math.hypot(n[i]-n[i-2],n[i+1]-n[i-1]);
+ return length;
+}
 function renderGlyph(data,progress,frameGeometry,character){
  if(!data.glyph.outlineOnly&&progress===1)return data.renderPaths??=compilePaths(data.rest);
  const key=character+':'+progress;
@@ -107,17 +113,19 @@ function renderGlyph(data,progress,frameGeometry,character){
  if(data.glyph.outlineOnly){
   if(!data.outlinePath){
    data.outlinePath=new Path2D(data.glyph.restEntries.map(c=>c.d).join(' '));
-   data.outlineContours=data.glyph.restEntries.map((c,j)=>({path:new Path2D(c.d),length:data.rest[j].path.slice(1).reduce((n,p,i)=>n+Math.hypot(p.x-data.rest[j].path[i].x,p.y-data.rest[j].path[i].y),0)}));
+   data.outlineContours=data.glyph.restEntries.map((c,j)=>({path:new Path2D(c.d),length:contourLength(c.d)}));
   }
   if(progress>=.55)return {outline:data.outlinePath};
   let image=maskPool[masksUsed++];
-  if(!image){image=document.createElement('canvas');image.width=image.height=800;maskPool.push(image);}
-  const mask=image.getContext('2d');mask.setTransform(2,0,0,2,0,0);mask.globalCompositeOperation='source-over';mask.clearRect(0,0,400,400);
+  if(!image){image=document.createElement('canvas');maskPool.push(image);}
+  const x=data.minX,y=data.minY,w=data.maxX-x,h=data.maxY-y;
+  const iw=Math.ceil(w*2),ih=Math.ceil(h*2);if(image.width!==iw)image.width=iw;if(image.height!==ih)image.height=ih;
+  const mask=image.getContext('2d');mask.setTransform(2,0,0,2,-x*2,-y*2);mask.globalCompositeOperation='source-over';mask.clearRect(x,y,w,h);
   const t=clamp(progress/.55),reveal=t*t*(3-2*t);
   mask.strokeStyle='#fff';mask.lineWidth=96;mask.lineCap=mask.lineJoin='round';
   for(const contour of data.outlineContours){mask.setLineDash([contour.length,contour.length]);mask.lineDashOffset=contour.length*(1-reveal);mask.stroke(contour.path);}
-  mask.globalCompositeOperation='source-in';mask.fillStyle='#111';mask.fill(data.outlinePath,'evenodd');
-  result={outline:data.outlinePath,image};
+  mask.globalCompositeOperation='source-in';mask.fillStyle='#111';mask.fill(data.outlinePath,sourceOutlines?'nonzero':'evenodd');
+  result={outline:data.outlinePath,image,x,y,w,h};
  }else result=compilePaths(engine.closeLoopPaths(data.glyph,1-progress));
  frameGeometry.set(key,result);return result;
 }
@@ -142,7 +150,7 @@ function restSprite(data,character,rowScale,lineWidth,letter){
  const pen=image.getContext('2d');
  pen.setTransform(pixelRatio*rowScale,0,0,pixelRatio*rowScale,-x*pixelRatio,-y*pixelRatio);
  pen.strokeStyle=pen.fillStyle='#111';pen.lineCap=pen.lineJoin='round';pen.lineWidth=lineWidth/rowScale;
- if(letter.outline)pen.fill(letter.outline,'evenodd');
+ if(letter.outline)pen.fill(letter.outline,sourceOutlines?'nonzero':'evenodd');
  else{if(letter.hasStroke)pen.stroke(letter.stroke);if(letter.hasDots)pen.fill(letter.dots);}
  const result={image,x,y,width:w/pixelRatio,height:h/pixelRatio,bytes};
  sprites.set(key,result);spriteBytes+=bytes;diagnostics?.spriteCreated();return result;
@@ -164,12 +172,12 @@ function render(mode){
  if(mode==='clear')return;
  const skipLive=mode==='sprites',skipRest=mode==='live';
  const frameGeometry=new Map();masksUsed=0;
- const total=rows.reduce((n,r,i)=>n+(rowBounds[i].bottom-rowBounds[i].top)*scale*r[0],0)+4*(rows.length-1);let y=(height-total)/2;
+ const total=rows.reduce((n,r,i)=>n+(rowBounds[i].bottom-rowBounds[i].top)*scale*r[0],0)+4*(rows.length-1);let y=Math.max(45,(height-total)/2);
  const minY=Math.min(0,...active.map(s=>s.minY)),maxY=Math.max(400,...active.map(s=>s.maxY));
  const lineWidth=Math.max(1.4,Math.min(3,width/450));
  for(const [rowIndex,[multiplier,speed]] of rows.entries()){
-  const rowScale=scale*multiplier,rowHeight=(rowBounds[rowIndex].bottom-rowBounds[rowIndex].top)*rowScale,centerY=y+rowHeight/2-scrollY;y+=rowHeight+4;
-  // The viewport canvas preserves page scrolling without painting unseen rows.
+  const rowScale=scale*multiplier,rowHeight=(rowBounds[rowIndex].bottom-rowBounds[rowIndex].top)*rowScale,centerY=y+rowHeight/2;y+=rowHeight+4;
+  // Keep partially visible rows; omit only rows entirely outside the viewport.
   if(centerY+(maxY-200)*rowScale+lineWidth<0||centerY+(minY-200)*rowScale-lineWidth>innerHeight)continue;
   const driftX=-drift*speed+manualOffset;
   for(const sentence of active){
@@ -187,7 +195,7 @@ function render(mode){
     for(let copy=first;copy<=lastCopy;copy++){
      if(sprite){ctx.drawImage(sprite.image,baseX+copy*period+sprite.x,centerY-200*rowScale+sprite.y,sprite.width,sprite.height);continue;}
      ctx.save();ctx.translate(baseX+copy*period,centerY-200*rowScale);ctx.scale(rowScale,rowScale);
-     if(letter.outline){if(letter.image)ctx.drawImage(letter.image,0,0,400,400);else ctx.fill(letter.outline,'evenodd');}
+     if(letter.outline){if(letter.image)ctx.drawImage(letter.image,letter.x,letter.y,letter.w,letter.h);else ctx.fill(letter.outline,sourceOutlines?'nonzero':'evenodd');}
      else{ctx.lineWidth=lineWidth/rowScale;if(letter.hasStroke)ctx.stroke(letter.stroke);if(letter.hasDots)ctx.fill(letter.dots);}
      ctx.restore();
     }
