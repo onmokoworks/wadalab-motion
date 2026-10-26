@@ -26,3 +26,11 @@ const completed=library.sample('あ',1);library.sample('あ',.3);assert.deepEqua
 assert.equal(library.sample(':',0).strokes[0].radiusY,0);
 assert.equal(library.sample('：',1).strokes[0].radiusX,30);
 console.log('DOM-free library, unsupported characters, repeatability and renderer parity: pass');
+
+// Original Wadalab bar contours, not substitute strokes or missing-glyph fallbacks.
+for(const character of 'ー―−‐─'){
+ const source=reference.make(character),frame=library.sample(character,1);
+ assert.equal(frame.kind,'outline',character);
+ assert.deepEqual(frame.contours,source.restEntries.map(e=>e.d),character+' retains original contour');
+}
+assert.equal(library.has('—'),false,'Do not silently substitute em dash for horizontal bar');

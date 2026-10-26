@@ -5,6 +5,9 @@ import {clamp,smooth} from './fold-core.js';
 export function prepareGlyph(engine,text,rule=11) {
  const glyph=engine.make(text,rule),alpha=engine.alpha.get(glyph.sourceCharacter);
  if(alpha){glyph.outlineOnly=false;glyph.lineWidth=alpha.width;glyph.alphaMotion=true;}
+ // The prolonged sound mark has an original maru contour; retain its caps
+ // and thickness instead of replacing it with a stroked centreline.
+ if(text==='ー')glyph.outlineOnly=true;
  if(text==='：'){
   glyph.outlineOnly=false;
   glyph.colonDots=glyph.strokes.map(stroke=>{

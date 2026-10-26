@@ -44,13 +44,17 @@ canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercan
 function getGlyph(character){
  if(cache.has(character))return cache.get(character);
  const glyph=prepareGlyph(engine,character),rest=engine.closeLoopPaths(glyph,0);
- const xs=rest.flatMap(p=>p.dotWidth?[p.path[0].x-p.dotWidth/2,p.path[0].x+p.dotWidth/2]:p.path.map(q=>q.x));
+ // Source contours use M/L/C coordinates. Their control-point hull also
+ // bounds curved caps, which a centreline-only sprite box would clip.
+ const inkPoints=glyph.outlineOnly?glyph.restEntries.flatMap(entry=>{const n=entry.d.match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi).map(Number);return Array.from({length:n.length/2},(_,i)=>({x:n[i*2],y:n[i*2+1]}));}):null;
+ const xs=inkPoints?inkPoints.map(p=>p.x):rest.flatMap(p=>p.dotWidth?[p.path[0].x-p.dotWidth/2,p.path[0].x+p.dotWidth/2]:p.path.map(q=>q.x));
  const left=Math.min(...xs),right=Math.max(...xs);
  const envelope=[],vertical=[];
  for(let i=0;i<=(glyph.outlineOnly?0:32);i++)for(const piece of engine.closeLoopPaths(glyph,i/32)){
   for(const point of piece.path){envelope.push(point.x-(piece.dotWidth??0)/2,point.x+(piece.dotWidth??0)/2);vertical.push(point.y,point.y+(piece.dotWidth??0));}
  }
- const value={glyph,rest,left,width:right-left,minX:Math.min(...envelope)-8,maxX:Math.max(...envelope)+8,minY:Math.min(...vertical)-16,maxY:Math.max(...vertical)+16};cache.set(character,value);return value;
+ if(inkPoints)for(const p of inkPoints){envelope.push(p.x);vertical.push(p.y);}
+ const value={glyph,rest,inkPoints,left,width:right-left,minX:Math.min(...envelope)-8,maxX:Math.max(...envelope)+8,minY:Math.min(...vertical)-16,maxY:Math.max(...vertical)+16};cache.set(character,value);return value;
 }
 let warmupPending=false;
 function prewarmNext(){
@@ -123,7 +127,7 @@ function renderGlyph(data,progress,frameGeometry,character){
 function restSprite(data,character,rowScale,lineWidth,letter){
  const key=character+':'+rowScale;
  if(sprites.has(key)){const cached=sprites.get(key);sprites.delete(key);sprites.set(key,cached);return cached;}
- const points=data.rest.flatMap(p=>p.dotWidth?
+ const points=data.inkPoints??data.rest.flatMap(p=>p.dotWidth?
   [{x:p.path[0].x-p.dotWidth/2,y:p.path[0].y},{x:p.path[0].x+p.dotWidth/2,y:p.path[0].y+p.dotWidth}]:p.path);
  if(!points.length)return null;
  const pad=lineWidth/2+2/pixelRatio;
