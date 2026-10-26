@@ -1,3 +1,4 @@
+import {bindContours,warpContour} from './source-contour-motion.js';
 import {layoutText} from './text-spacing.js';
 import {scheduleLetters} from './transition-spacing.js';
 import {SourceEngine} from './source-engine.js';
@@ -44,10 +45,10 @@ canvas.addEventListener('pointerup',release);canvas.addEventListener('pointercan
 function getGlyph(character){
  if(cache.has(character))return cache.get(character);
  const glyph={...prepareGlyph(engine,character)},rest=engine.closeLoopPaths(glyph,0);
- if(sourceOutlines)glyph.outlineOnly=true;
+
  // Source contours use M/L/C coordinates. Their control-point hull also
  // bounds curved caps, which a centreline-only sprite box would clip.
- const inkPoints=glyph.outlineOnly?glyph.restEntries.flatMap(entry=>{const n=entry.d.match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi).map(Number);return Array.from({length:n.length/2},(_,i)=>({x:n[i*2],y:n[i*2+1]}));}):null;
+ const inkPoints=(sourceOutlines||glyph.outlineOnly)?glyph.restEntries.flatMap(entry=>{const n=entry.d.match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi).map(Number);return Array.from({length:n.length/2},(_,i)=>({x:n[i*2],y:n[i*2+1]}));}):null;
  const xs=inkPoints?inkPoints.map(p=>p.x):rest.flatMap(p=>p.dotWidth?[p.path[0].x-p.dotWidth/2,p.path[0].x+p.dotWidth/2]:p.path.map(q=>q.x));
  const left=Math.min(...xs),right=Math.max(...xs);
  const envelope=[],vertical=[];
@@ -106,11 +107,16 @@ function contourLength(d){
  return length;
 }
 function renderGlyph(data,progress,frameGeometry,character){
- if(!data.glyph.outlineOnly&&progress===1)return data.renderPaths??=compilePaths(data.rest);
+ if(!sourceOutlines&&!data.glyph.outlineOnly&&progress===1)return data.renderPaths??=compilePaths(data.rest);
  const key=character+':'+progress;
  if(frameGeometry.has(key))return frameGeometry.get(key);
  let result;
- if(data.glyph.outlineOnly){
+ if(sourceOutlines&&!data.glyph.outlineOnly){
+  if(progress===1)return {outline:data.outlinePath??=new Path2D(data.glyph.restEntries.map(c=>c.d).join(' '))};
+  const moving=engine.closeLoopPaths(data.glyph,1-progress);
+  const bindings=data.contourBindings??=bindContours(data);
+  result={outline:new Path2D(bindings.map(entry=>warpContour(entry,moving)).join(' '))};
+ }else if(data.glyph.outlineOnly){
   if(!data.outlinePath){
    data.outlinePath=new Path2D(data.glyph.restEntries.map(c=>c.d).join(' '));
    data.outlineContours=data.glyph.restEntries.map((c,j)=>({path:new Path2D(c.d),length:contourLength(c.d)}));
