@@ -54,3 +54,15 @@ test('a blank character does not restart a relay from an earlier base time',()=>
  const strategy={parts:[{path:[{x:0,y:0},{x:10,y:0}]}]},items=[{glyph:{strategy},born:1},{glyph:null,born:1.07},{glyph:{strategy},born:1.14}],times=relaySchedule(items,.35);
  assert.ok(times[1]>=times[0]+.21-.000001);assert.ok(times[2]>=times[1]+.07-.000001);
 });
+
+test('the drawn caret follows the selection, including across a line break',()=>{
+ globalThis.devicePixelRatio??=1;
+ const glyph={advance:1,centerX:0,centerY:0},items=[{segment:'a',glyph},{segment:'b',glyph},{segment:'\n',glyph:null},{segment:'c',glyph}];
+ const view={items,options:{fontSize:100,pad:4,top:0},canvas:{parentElement:{getBoundingClientRect:()=>({width:1000,height:500})},style:{}},caretFor:FoldRenderer.prototype.caretFor};
+ FoldRenderer.prototype.layout.call(view);
+ assert.deepEqual(view.slots.map(({x,y})=>[x,y]),[[4,8],[110,8],[216,8],[4,143],[110,143]]);
+ assert.equal(view.caret,view.slots[4]);
+ view.caretIndex=1;FoldRenderer.prototype.layout.call(view);
+ assert.equal(view.caret.x,110);
+ assert.equal(view.caretFor(99),view.slots[4]);
+});

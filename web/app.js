@@ -37,6 +37,7 @@ async function update({bulkHint=false,preserveScroll=false}={}){
  if(removed.length){const delays=deletionDelays(removed.length);renderer.queueDepartures(removed.map((sourceIndex,index)=>({sourceIndex,delay:delays[index]})),clock);}
  $('error').textContent=missing.length?`未収録：${missing.join('・')}`:'';
  const safe=characters.map(character=>missing.includes(character)?' ':character).join('');
+ renderer.caretIndex=caretIndex();
  try{
   if(bulk){bulkPlayback=true;playbackScrollTarget=savedScrollTop;}
   await renderer.setText(safe,()=>mine===token,()=>clock);
@@ -46,6 +47,13 @@ async function update({bulkHint=false,preserveScroll=false}={}){
   else keepActivityVisible();
  }catch(error){if(mine===token)$('error').textContent=error.message;}
  finally{if(mine===token)updating=false;}
+}
+
+// The drawn caret follows the textarea selection, not only the end of the text.
+function caretIndex(){const input=$('input');return segments(input.value.slice(0,input.selectionEnd)).length;}
+function syncSelection(){
+ if(!renderer?.slots||composing)return;
+ renderer.caretIndex=caretIndex();renderer.caret=renderer.caretFor(renderer.caretIndex);keepActivityVisible();
 }
 
 function updateCaret(){
@@ -99,6 +107,8 @@ $('input').addEventListener('keydown',event=>{
  $('input').value=text;$('input').setSelectionRange(text.length,text.length);$('error').textContent='';updateCaret();
 });
 $('input').addEventListener('blur',()=>{document.body.classList.remove('waiting');});
+document.addEventListener('selectionchange',()=>{if(document.activeElement===$('input'))syncSelection();});
+$('input').addEventListener('keyup',syncSelection);
 
 function focusInput(){if(!$('license').open)$('input').focus({preventScroll:true});}
 document.addEventListener('click',event=>{if(event.target.closest('button,dialog'))return;event.preventDefault();focusInput();});
