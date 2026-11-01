@@ -4,7 +4,7 @@ import {SourceEngine} from './web/source-engine.js';
 
 const engine=new SourceEngine(JSON.parse(fs.readFileSync('./web/source-program.json')),JSON.parse(fs.readFileSync('./web/source-glyphs.json')),JSON.parse(fs.readFileSync('./web/font/ascii-outlines.json')));
 
-for(const [wide,narrow] of [['Ａ','A'],['Ｚ','Z'],['ａ','a'],['ｚ','z'],['０','0'],['９','9']]){
+for(const [wide,narrow] of [['Ａ','A'],['Ｚ','Z'],['ａ','a'],['ｚ','z'],['０','0'],['９','9'],['！','!'],['？','?']]){
  assert.equal(engine.resolve(wide),narrow,`${wide}: TTFの${narrow}へ解決`);
  const wideGlyph=engine.make(wide,11),narrowGlyph=engine.make(narrow,11);
  assert.equal(wideGlyph.sourceCharacter,narrow);
@@ -13,5 +13,5 @@ for(const [wide,narrow] of [['Ａ','A'],['Ｚ','Z'],['ａ','a'],['ｚ','z'],['�
  assert.equal(wideGlyph.centerX,.75,`${wide}: 全角枠内で中央配置`);
 }
 
-assert.equal(engine.resolve('！'),'！','全角句読点は変換しない');
+assert.equal(engine.resolve('（'),'（','！？以外の全角記号は変換しない');
 console.log(JSON.stringify({fullwidthAlphanumerics:'TTF outlines',advance:'fullwidth',alignment:'center'}));

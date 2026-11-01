@@ -3,7 +3,7 @@ import {installVectorMath} from './source-fast.js';
 import {clamp,smooth} from './fold-core.js';
 import {plan,posedPaths,relayPaths,relayProfile} from './structure.js';
 import {prepareAlphaMotion,alphaMotionPaths} from './alpha-motion.js';
-function fullwidthAlphanumericToAscii(text){const code=text.codePointAt(0);return text.length===1&&((code>=0xff10&&code<=0xff19)||(code>=0xff21&&code<=0xff3a)||(code>=0xff41&&code<=0xff5a))?String.fromCodePoint(code-0xfee0):text;}
+function fullwidthAlphanumericToAscii(text){const code=text.codePointAt(0);return text.length===1&&((code>=0xff10&&code<=0xff19)||(code>=0xff21&&code<=0xff3a)||(code>=0xff41&&code<=0xff5a)||code===0xff01||code===0xff1f)?String.fromCodePoint(code-0xfee0):text;}
 export class SourceEngine{
  constructor(program,glyphs,ascii={glyphs:[]},alpha={glyphs:[]}){this.vm=new SourceVM();this.vm.load(program);installVectorMath(this.vm);this.glyphs=new Map(glyphs);this.ascii=new Map(ascii.glyphs.map(row=>[row[0],{paths:row[1],advance:row[2]}]));this.alpha=new Map(alpha.glyphs.map(([character,paths,width,advance,dots])=>[character,prepareAlphaMotion(paths,width,dots)]));this.definitions=new Map(glyphs.map(row=>[row[0],row[2]??null]));this.cache=new Map();}
  resolve(text){const ascii=fullwidthAlphanumericToAscii(text);if(this.ascii.has(ascii))return ascii;if(this.ascii.has(text)||this.glyphs.has(text))return text;return null;}
