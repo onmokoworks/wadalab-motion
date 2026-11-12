@@ -29,7 +29,7 @@ void setup() {
   lcd.init(); lcd.fillScreen(TFT_BLACK);
   canvas.setColorDepth(16); canvas.createSprite(240, 240);
   style.lineScale = 0.85f;
-  style.showPoints = true;           // 線が生まれて消える点を見せる（false で JavaScript 版と同じく見せない）
+  style.showPoints = false;          // true にすると、線が生まれる前と消えたあとの点が見える
   for (int k = 0; k < NRINGS; k++) {
     int one[64]; int n = wadalab::parse(WADALAB_FONT, RINGS[k].text, one, 64);
     counts[k] = 0;

@@ -39,7 +39,7 @@ wadalab-motion の文字の動きを、ESP32 につないだ液晶で再生す�
 
 ## 例
 
-`examples/RingText` は、丸液晶 GC9A01 に文字列を 3 重の輪に並べて回し、各文字を波に合わせて展開・畳みします。液晶の設定とピンは `display.h` にあります。LovyanGFX が必要です。
+`examples/RingText` は、丸液晶 GC9A01 に文字列を 3 重の輪に並べて回し、各文字を波に合わせて展開・畳みします。点は出しません（`showPoints = false`）。液晶の設定とピンは `display.h` にあります。LovyanGFX が必要です。
 
 ## 速さについて
 
