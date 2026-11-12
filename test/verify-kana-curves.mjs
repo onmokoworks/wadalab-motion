@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {SourceEngine} from './web/source-engine.js';
-const load=async path=>JSON.parse(await readFile(new URL(`web/${path}`,import.meta.url),'utf8'));
+import {SourceEngine} from '../web/source-engine.js';
+const load=async path=>JSON.parse(await readFile(new URL(`../web/${path}`,import.meta.url),'utf8'));
 const engine=new SourceEngine(...await Promise.all(['source-program.json','source-glyphs.json','font/ascii-outlines.json','font/alpha-centerlines.json'].map(load)));
 const turn=points=>points.slice(2).map((p,i)=>{
  const a=points[i],b=points[i+1];

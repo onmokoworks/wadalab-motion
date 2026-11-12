@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {analyze,plan,posedPaths,posedDots,flexPath,trimPath} from './web/structure.js';
+import {analyze,plan,posedPaths,posedDots,flexPath,trimPath} from '../web/structure.js';
 function fixture(){const w=96,h=96,a=new Uint8Array(w*h);const rect=(x,y,dx,dy)=>{for(let j=y;j<y+dy;j++)for(let i=x;i<x+dx;i++)a[j*w+i]=255;};rect(18,18,44,5);rect(18,58,44,5);rect(18,18,5,45);rect(58,18,5,45);rect(38,5,5,18);rect(58,38,30,5);rect(78,38,5,35);return analyze(a,w,h);}
 test('closed paths and actual junctions survive graph extraction',()=>{const g=fixture();assert.ok(g.edges.some(e=>e.cycle));assert.ok(g.nodes.some(n=>n.edges.length>=3));assert.ok(g.nodes.some(n=>n.edges.length===1));});
 test('rigid-cycle rule preserves internal distances; changes pivot to cycle attachment',()=>{const g=fixture(),s=plan(g,8),p=posedPaths(s,1);for(const part of s.parts.filter(p=>!p.fixed)){const a=part.path,b=p[part.edge];for(let i=1;i<a.length;i++)assert.ok(Math.abs(Math.hypot(a[i].x-a[0].x,a[i].y-a[0].y)-Math.hypot(b[i].x-b[0].x,b[i].y-b[0].y))<1e-7);}});

@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {clockGlyphFrame,clockLayers} from './web/clock-flow-core.js';
-import {foldStrokePath,strokeVisibility,clockMotion} from './web/clock-core.js';
-import {clamp} from './web/fold-core.js';
+import {clockGlyphFrame,clockLayers} from '../web/clock-flow-core.js';
+import {foldStrokePath,strokeVisibility,clockMotion} from '../web/clock-core.js';
+import {clamp} from '../web/fold-core.js';
 const data=JSON.parse(await readFile('web/font/clock-skeletons.json','utf8'));
 for(const [character,paths,width,advance] of data.glyphs){
  const glyph={character,paths,width,advance};

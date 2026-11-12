@@ -2,12 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
-import {buildRig,pose,deform,entryTimes} from './web/fold-core.js';
-import {hasCodePoint} from './web/font-support.js';
+import {buildRig,pose,deform,entryTimes} from '../web/fold-core.js';
+import {hasCodePoint} from '../web/font-support.js';
 
 test('bundled font is the unmodified 4.73 release; added characters are indexed',async()=>{
- const metadata=JSON.parse(await readFile(new URL('./web/font/metadata.json',import.meta.url)));
- const bytes=await readFile(new URL('./web/font/wlmaru2004emoji.ttf',import.meta.url));
+ const metadata=JSON.parse(await readFile(new URL('../web/font/metadata.json',import.meta.url)));
+ const bytes=await readFile(new URL('../web/font/wlmaru2004emoji.ttf',import.meta.url));
  assert.equal(createHash('sha256').update(bytes).digest('hex'),metadata.sha256);
  for(const c of '和田研あいうえお𠮷😀ABCabc123')assert.ok(hasCodePoint(metadata,c.codePointAt(0)),c);
  assert.equal(hasCodePoint(metadata,0x10ffff),false);
@@ -32,7 +32,7 @@ test('appending is sequential and preserves existing character entry times',()=>
 });
 
 test('path trimming follows a bent stroke by length, without moving its pixels',async()=>{
- const {buildTrimMap}=await import('./web/fold-core.js');
+ const {buildTrimMap}=await import('../web/fold-core.js');
  const w=48,h=48,a=new Uint8Array(w*h);
  for(let y=5;y<=35;y++)for(let x=7;x<=11;x++)a[y*w+x]=255;
  for(let y=31;y<=35;y++)for(let x=7;x<=38;x++)a[y*w+x]=255;

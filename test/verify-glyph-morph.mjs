@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
-import {buildMorph,morphPaths,morphSchedule} from './web/glyph-morph.js';
+import {buildMorph,morphPaths,morphSchedule} from '../web/glyph-morph.js';
 import {readFile} from 'node:fs/promises';
-import {createMotionLibrary} from './web/motion-library.js';
+import {createMotionLibrary} from '../web/motion-library.js';
 const files={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
 const data=Object.fromEntries(await Promise.all(Object.entries(files).map(async([k,p])=>[k,JSON.parse(await readFile(`web/${p}`,'utf8'))]))),library=createMotionLibrary(data);
 for(const text of ['TEST','MOTION','Wadalabfont','Thequickbrownfoxjumpsoverthelazydog'])for(let i=0;i<text.length;i++){
@@ -16,7 +16,7 @@ for(const count of [3,4,6,9,35])for(const seconds of [0,.9,1.09,1.19,2.4,8]){
  assert.ok(state.active>=0&&state.active<count);assert.equal(Array.from({length:count},(_,i)=>i).filter(i=>i===state.active).length,1);
 }
 assert.equal(morphSchedule(1.18,4,1,.18).active,1);
-const {arcPosition}=await import('./web/glyph-morph.js');
+const {arcPosition}=await import('../web/glyph-morph.js');
 assert.deepEqual(arcPosition(0,220,0),{x:0,y:-0});
 assert.ok(Math.abs(arcPosition(0,220,1).x-220)<1e-9);
 assert.ok(Math.abs(arcPosition(0,220,1).y)<1e-9);
@@ -26,12 +26,12 @@ for(const count of [3,4,9])for(const tick of [0,count-1,count,count+1]){
  const positions=Array.from({length:count},(_,i)=>(i+state.round+(i<state.active?1:0))%count);
  if(state.active===0)assert.equal(new Set(positions).size,count);
 }
-const {travelMorph}=await import('./web/glyph-morph.js');
+const {travelMorph}=await import('../web/glyph-morph.js');
 const straight=[[{x:0,y:0},{x:100,y:0}]],travel=buildMorph(straight,straight);
 assert.deepEqual(travelMorph(travel,0,220,0),straight);
 assert.deepEqual(travelMorph(travel,0,220,1),[[{x:220,y:0},{x:320,y:0}]]);
 const moving=travelMorph(travel,0,220,.2)[0];assert.equal(moving[0].x,0);assert.ok(moving.at(-1).x>100);
-const {sequenceState}=await import('./web/glyph-morph.js');
+const {sequenceState}=await import('../web/glyph-morph.js');
 assert.deepEqual(sequenceState(-1,4),{index:0,next:1,progress:0,done:false});
 assert.equal(sequenceState(.99,4).progress,0);assert.ok(sequenceState(1.09,4).progress>0);
 assert.deepEqual(sequenceState(1.18,4),{index:1,next:2,progress:0,done:false});
@@ -49,7 +49,7 @@ for(const count of [3,4,9]){
 }
 const arm=[[{x:0,y:0},{x:100,y:0}]],targetArms=[arm[0],[{x:0,y:50},{x:100,y:50}]],branched=buildMorph(arm,targetArms);
 assert.equal(branched.pairs.length,2);assert.ok(branched.pairs[1][0].every(p=>p.y===0));
-const {straightMorphPaths,strongEase}=await import('./web/glyph-morph.js');
+const {straightMorphPaths,strongEase}=await import('../web/glyph-morph.js');
 const curve=[[{x:0,y:0},{x:50,y:100},{x:100,y:0}]],curved=buildMorph(curve,[[{x:0,y:0},{x:50,y:-50},{x:100,y:0}]]);
 assert.deepEqual(straightMorphPaths(curved,0),curve);
 assert.deepEqual(straightMorphPaths(curved,1),curved.to);

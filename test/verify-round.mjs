@@ -1,8 +1,8 @@
 import fs from 'node:fs';
-import {SourceEngine} from './web/source-engine.js';
+import {SourceEngine} from '../web/source-engine.js';
 
-const program=JSON.parse(fs.readFileSync(new URL('./web/source-program.json',import.meta.url)));
-const glyphs=JSON.parse(fs.readFileSync(new URL('./web/source-glyphs.json',import.meta.url)));
+const program=JSON.parse(fs.readFileSync(new URL('../web/source-program.json',import.meta.url)));
+const glyphs=JSON.parse(fs.readFileSync(new URL('../web/source-glyphs.json',import.meta.url)));
 const engine=new SourceEngine(program,glyphs);
 const expected=new Map([['の',1],['あ',1],['め',1],['ぬ',1],['一',0],['永',0]]);
 for(const [character,count] of expected){

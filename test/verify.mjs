@@ -2,7 +2,7 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {spawnSync} from 'node:child_process';
 import {fileURLToPath} from 'node:url';
-process.chdir(fileURLToPath(new URL('.',import.meta.url)));
+process.chdir(fileURLToPath(new URL('..',import.meta.url)));   // リポジトリのいちばん上で動かす
 async function generate(text,params={}){const response=await fetch('http://127.0.0.1:4184/api/generate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,steps:60,...params})});const value=await response.json();assert.equal(response.status,200,JSON.stringify(value));return value;}
 test('original CLWFK final output matches animated final frames',async()=>{
  const direct=spawnSync('java',['-Dfile.encoding=UTF-8','-jar','runtime/abcl.jar','--noinform','--batch','--load','engine/reference.lisp'],{encoding:'utf8',timeout:30000,windowsHide:true,maxBuffer:4000000});assert.equal(direct.status,0,direct.stderr);

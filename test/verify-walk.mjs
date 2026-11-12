@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {createMotionLibrary} from './web/motion-library.js';
-import {leadingWeights,walkingPoint} from './web/walk-core.js';
+import {createMotionLibrary} from '../web/motion-library.js';
+import {leadingWeights,walkingPoint} from '../web/walk-core.js';
 const files={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
-const data=Object.fromEntries(await Promise.all(Object.entries(files).map(async([k,v])=>[k,JSON.parse(await readFile(new URL(`web/${v}`,import.meta.url),'utf8'))])));
+const data=Object.fromEntries(await Promise.all(Object.entries(files).map(async([k,v])=>[k,JSON.parse(await readFile(new URL(`../web/${v}`,import.meta.url),'utf8'))])));
 const library=createMotionLibrary(data);
 const n=library.sample('n',1).strokes,nWeights=leadingWeights(n);
 const arch=n[1].points,apex=arch.reduce((best,p,i)=>p.y<arch[best].y?i:best,0);

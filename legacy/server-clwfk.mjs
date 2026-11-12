@@ -3,8 +3,8 @@ import {spawn} from 'node:child_process';
 import {readFile} from 'node:fs/promises';
 import readline from 'node:readline';
 import {fileURLToPath} from 'node:url';
-process.chdir(fileURLToPath(new URL('.',import.meta.url)));
-await import('./engine/prepare.mjs');
+process.chdir(fileURLToPath(new URL('..',import.meta.url)));   // リポジトリのいちばん上で動かす（legacy/ に移したため）
+await import('../engine/prepare.mjs');
 const port=4184;
 const worker=spawn('java',['-Dfile.encoding=UTF-8','-jar','runtime/abcl.jar','--noinform','--batch','--load','engine/bridge.lisp'],{windowsHide:true,stdio:['pipe','pipe','pipe']});
 let ready=false,coverage=0,current=null,stopping=false;const queue=[],cache=new Map();let cachedBytes=0;

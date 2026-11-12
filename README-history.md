@@ -30,11 +30,11 @@
 
 ## 検証
 
-`node --test verify-fold.mjs`
+`node --test test/verify-fold.mjs`
 
 実フォントのハッシュ、追加文字の収録、完成時の座標一致、関節長の維持、数値の有限性、追加入力・削除で既存の登場時刻が維持されることを確認します。全23,909字形の目視検証は行っていません。
 
-旧CLWFK方式は `server-clwfk.mjs` と `README-clwfk.md` に保存しています。現在の `START.cmd` はTTFを使う新しい画面を起動します。旧 `verify.mjs`、`web/preview.html`、`example-animation.json`、`unity/WadalabMotionPreview.cs` はCLWFK方式用で、現在の画面の動きとは異なります。
+旧CLWFK方式は `legacy/server-clwfk.mjs` と `legacy/README-clwfk.md` に保存しています。現在の `START.cmd` はTTFを使う新しい画面を起動します。旧 `test/verify.mjs`、`web/preview.html`、`example-animation.json`、`unity/WadalabMotionPreview.cs` はCLWFK方式用で、現在の画面の動きとは異なります。
 調整値は `web/motion-config.js` にまとめています（登場時間、文字間の遅延、曲げ量、関節間隔、メッシュ分割、文字サイズ）。
 
 ## 現在の登場動作：パストリミング
@@ -53,7 +53,7 @@
 
 `web/structure.js` の analyze / plan / posedPaths / posedDots は描画と独立した数値処理です。Unityへの移植はグラフ・規則・出力経路を利用できます。既存の unity/FoldPose.cs は旧方式で、今回のC#移植は未実施です。
 
-検証: `node --test verify-structure.mjs verify-fold.mjs`。ブラウザでも「木田永あ口一。i𠮷😀」×10案の670パスについて動き・有限値・完成座標、3番の根元固定を確認しています。
+検証: `node --test test/verify-structure.mjs test/verify-fold.mjs`。ブラウザでも「木田永あ口一。i𠮷😀」×10案の670パスについて動き・有限値・完成座標、3番の根元固定を確認しています。
 
 登場開始時は完全非表示です。変形後の経路を弧長でトリムし、登場時間の85%までに全長を表示、残りで完成形へ落ち着きます。孤立点はサイズ0から登場。判断点は初期非表示です。
 
@@ -63,13 +63,13 @@ Aは現行06、Bは06の変形からトリムのみ除去、Cは横軸を固定�
 
 C・Dは元の横線判定を利用し、非閉路の枝について実際の角度差が0.30radを超える頂点を関節にします。Dは根元の回転を先行させ、角の順序に従って開始をずらします。各区間の長さは保持。固定軸へのしなり追加は行いません。横線判定は経路両端の水平・垂直距離比較による近似で、筆画や部首の意味を理解した判定ではありません。
 
-`node --test verify-series.mjs verify-structure.mjs` で完成形・固定軸・区間長・同時と順次の差を検証しています。
+`node --test test/verify-series.mjs test/verify-structure.mjs` で完成形・固定軸・区間長・同時と順次の差を検証しています。
 
 ## F：隣の文字への受け渡し
 
 Bの変形を維持してトリムなし。各経路の開始点のx位置で文字内部の開始をずらします（最大で登場時間の35%）。最も右へ到達する経路の開き進行が60%に達する時刻を計算し、次の文字の開始条件にします。空白・改行は連鎖を切ります。文字列の折り返しでは読み順に引き継ぎます。静止比較は各文字の同じ進行度の形を比較する機能なので、文字間の受け渡しは再生で確認してください。
 
-`relayProfile` / `relaySchedule` / `relayPaths` はDOMから独立した数値関数。物理的な接触ではなく、経路の位置と開き進行による連鎖です。`node --test verify-relay.mjs verify-series.mjs` で受け渡し時刻、空白での切断、左右の順序、完成座標を検証済みです。
+`relayProfile` / `relaySchedule` / `relayPaths` はDOMから独立した数値関数。物理的な接触ではなく、経路の位置と開き進行による連鎖です。`node --test test/verify-relay.mjs test/verify-series.mjs` で受け渡し時刻、空白での切断、左右の順序、完成座標を検証済みです。
 
 ## 長文の描画修正
 

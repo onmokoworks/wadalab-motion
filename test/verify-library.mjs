@@ -1,10 +1,10 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
 import {createMotionLibrary} from 'wadalab-motion';
-import {SourceEngine} from './web/source-engine.js';
-import {prepareGlyph,dotGeometry} from './web/motion-library.js';
+import {SourceEngine} from '../web/source-engine.js';
+import {prepareGlyph,dotGeometry} from '../web/motion-library.js';
 const paths={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
-const data=Object.fromEntries(await Promise.all(Object.entries(paths).map(async([key,path])=>[key,JSON.parse(await readFile(new URL(`web/${path}`,import.meta.url),'utf8'))])));
+const data=Object.fromEntries(await Promise.all(Object.entries(paths).map(async([key,path])=>[key,JSON.parse(await readFile(new URL(`../web/${path}`,import.meta.url),'utf8'))])));
 const library=createMotionLibrary(data),reference=new SourceEngine(data.program,data.glyphs,data.ascii,data.alpha);
 assert.equal(library.has('🦄'),false);
 assert.equal(library.sample('🦄',.5),null);

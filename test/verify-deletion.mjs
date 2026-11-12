@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {deletionDelays,removedIndices} from './web/deletion-schedule.js';
+import {deletionDelays,removedIndices} from '../web/deletion-schedule.js';
 
 assert.deepEqual(removedIndices([...('和田研究')],[...('和田')]),[2,3]);
 assert.deepEqual(removedIndices([...('和田研究')],[...('和研究')]),[1]);

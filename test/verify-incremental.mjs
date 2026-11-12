@@ -1,9 +1,9 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import {FoldRenderer} from './web/renderer.js';
-import {NativeRenderer} from './web/native-renderer.js';
-import {relaySchedule} from './web/structure.js';
-import {textThrough} from './web/playback-control.js';
+import {FoldRenderer} from '../web/renderer.js';
+import {NativeRenderer} from '../web/native-renderer.js';
+import {relaySchedule} from '../web/structure.js';
+import {textThrough} from '../web/playback-control.js';
 
 function renderer(items=[]){return {items,duration:.35,stagger:.07,make:segment=>({text:segment}),layout(){this.layouts=(this.layouts??0)+1;},prune(){}};}
 

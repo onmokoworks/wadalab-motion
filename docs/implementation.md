@@ -42,9 +42,9 @@ C＋4とC＋5′の文字間リレーは、空白、改行、未収録文字に�
 
 ## 検証
 
-- `node verify-source.mjs`：7文字についてABCLで実行した原典の輪郭と比較。輪郭構成・点の種類が一致し、最大座標差は400単位の字面に対して0.00005未満。
-- `node verify-native.mjs`：同じ7文字の複数の変形時刻で原典生成が有限な輪郭を返すことを確認。
-- `node verify-coverage.mjs --all`：全文字の完成時・途中時の生成検証。結果は `source-audit/browser-coverage.json`。
+- `node test/verify-source.mjs`：7文字についてABCLで実行した原典の輪郭と比較。輪郭構成・点の種類が一致し、最大座標差は400単位の字面に対して0.00005未満。
+- `node test/verify-native.mjs`：同じ7文字の複数の変形時刻で原典生成が有限な輪郭を返すことを確認。
+- `node test/verify-coverage.mjs --all`：全文字の完成時・途中時の生成検証。結果は `source-audit/browser-coverage.json`。
 - ブラウザではCanvas画像処理を例外にした状態で1,200文字の入力を試験。SVGパスの変化、停止前後の要素の同一性、画面外の文字の間引き表示を確認。
 
 計算量は字形の複雑さと同時に動く文字数に依存します。60fpsを全端末・全文字で保証する実装ではありません。
@@ -85,5 +85,5 @@ C＋3、C＋4、C＋5はSVGの `stroke-dasharray` を使いません。パス座
 
 原典でoutline型のみの記号は中心骨格を持たないため、その原典パスを一定幅の線で表示します。これを通常の中心骨格と同一とは扱いません。
 
-`node verify-motion.mjs` は160文字の基礎変形、時間配分、複数時刻を確認します。`node verify-round.mjs` はC＋とC＋2について円弧、直線軸、一画一パス、完成形への一致を確認します。`node verify-coverage.mjs --all` は6,703文字で生成・途中の有限性を確認します。
+`node test/verify-motion.mjs` は160文字の基礎変形、時間配分、複数時刻を確認します。`node test/verify-round.mjs` はC＋とC＋2について円弧、直線軸、一画一パス、完成形への一致を確認します。`node test/verify-coverage.mjs --all` は6,703文字で生成・途中の有限性を確認します。
 

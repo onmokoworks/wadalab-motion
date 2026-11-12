@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {prepareAlphaMotion,alphaMotionPaths} from './web/alpha-motion.js';
+import {prepareAlphaMotion,alphaMotionPaths} from '../web/alpha-motion.js';
 const data=JSON.parse(fs.readFileSync('./web/font/alpha-centerlines.json'));
 assert.equal(data.glyphs.length,94);
 let curves=0;

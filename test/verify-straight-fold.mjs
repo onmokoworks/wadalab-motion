@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import {SourceEngine} from './web/source-engine.js';
+import {SourceEngine} from '../web/source-engine.js';
 
 const engine=new SourceEngine(JSON.parse(fs.readFileSync('./web/source-program.json')),JSON.parse(fs.readFileSync('./web/source-glyphs.json')),JSON.parse(fs.readFileSync('./web/font/ascii-outlines.json')));
 const length=path=>path.slice(1).reduce((sum,point,i)=>sum+Math.hypot(point.x-path[i].x,point.y-path[i].y),0);

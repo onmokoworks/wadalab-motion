@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import {readFile} from 'node:fs/promises';
-import {SourceEngine} from './web/source-engine.js';
-import {prepareGlyph,dotGeometry} from './web/motion-library.js';
-import {createUnfoldRig,unfoldPaths} from './web/unfold-step.js';
+import {SourceEngine} from '../web/source-engine.js';
+import {prepareGlyph,dotGeometry} from '../web/motion-library.js';
+import {createUnfoldRig,unfoldPaths} from '../web/unfold-step.js';
 const names={program:'source-program.json',glyphs:'source-glyphs.json',ascii:'font/ascii-outlines.json',alpha:'font/alpha-centerlines.json'};
 const data=Object.fromEntries(await Promise.all(Object.entries(names).map(async([k,p])=>[k,JSON.parse(await readFile(`web/${p}`,'utf8'))])));
 const engine=new SourceEngine(data.program,data.glyphs,data.ascii,data.alpha);

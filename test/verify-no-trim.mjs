@@ -1,7 +1,7 @@
 import fs from 'node:fs';
-import {SourceEngine} from './web/source-engine.js';
+import {SourceEngine} from '../web/source-engine.js';
 
-const read=path=>JSON.parse(fs.readFileSync(new URL(path,import.meta.url))),engine=new SourceEngine(read('./web/source-program.json'),read('./web/source-glyphs.json'));
+const read=path=>JSON.parse(fs.readFileSync(new URL(path,import.meta.url))),engine=new SourceEngine(read('../web/source-program.json'),read('../web/source-glyphs.json'));
 const length=path=>path.slice(1).reduce((sum,point,i)=>sum+Math.hypot(point.x-path[i].x,point.y-path[i].y),0),distanceToPath=(point,path)=>Math.min(...path.slice(1).map((b,i)=>{const a=path[i],dx=b.x-a.x,dy=b.y-a.y,t=Math.max(0,Math.min(1,((point.x-a.x)*dx+(point.y-a.y)*dy)/(dx*dx+dy*dy||1)));return Math.hypot(point.x-a.x-dx*t,point.y-a.y-dy*t);})),sameGeometry=(a,b)=>a.every(point=>distanceToPath(point,b)<1e-5)&&b.every(point=>distanceToPath(point,a)<1e-5),methods=['junctionBranchPaths','tangentRelayStrokePaths','closeLoopPaths','carefulClosePaths'];
 for(const character of ['し','文','木','口','田','の','あ','永']){const glyph=engine.make(character,11);for(const method of methods){const start=engine[method](glyph,1),rest=engine[method](glyph,0);if(start.some(piece=>length(piece.path)>1e-7))throw Error(`${character}/${method}: 長さ0から始まりません`);if(new Set(rest.map(piece=>piece.stroke)).size!==glyph.strokes.length)throw Error(`${character}/${method}: 一画一パスではありません`);for(const piece of rest){const source=glyph.strokes[piece.stroke].motionPath;if(!sameGeometry(piece.path,source))throw Error(`${character}/${method}: 完成形が原典と一致しません`);}}}
 const tree=engine.make('木',11),treeAt20=engine.junctionBranchPaths(tree,.8);if(!treeAt20.some(piece=>tree.junctionPlans.get(piece.stroke).level===0&&length(piece.path)>1)||!treeAt20.some(piece=>tree.junctionPlans.get(piece.stroke).level>=2&&length(piece.path)<1e-7))throw Error('交点分岐の段階差がありません');

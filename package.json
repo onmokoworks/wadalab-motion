@@ -12,5 +12,5 @@
     "./data/ascii.json": "./web/font/ascii-outlines.json",
     "./data/alpha.json": "./web/font/alpha-centerlines.json"
   },
-  "scripts": {"test": "node verify-library.mjs && node verify-glyph-morph.mjs"}
+  "scripts": {"test": "node test/verify-library.mjs && node test/verify-glyph-morph.mjs"}
 }

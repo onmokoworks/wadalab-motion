@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {analyze,plan,posedPaths} from './web/structure.js';
+import {analyze,plan,posedPaths} from '../web/structure.js';
 test('06 series preserves rest, fixed axes and articulated segment lengths',()=>{
  const w=96,a=new Uint8Array(w*w);for(let y=0;y<w;y++)for(let x=0;x<w;x++)if((y>=20&&y<=23&&x>10&&x<80)||(x>=40&&x<=43&&y>=20&&y<65)||(y>=62&&y<=65&&x>=40&&x<70)||(x>=67&&x<=70&&y>=62&&y<85))a[y*w+x]=255;
  const g=analyze(a,w,w);

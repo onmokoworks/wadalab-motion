@@ -1,8 +1,8 @@
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import {SourceEngine} from './web/source-engine.js';
-import {prepareGlyph} from './web/motion-library.js';
-import {bindContours,warpContour} from './web/source-contour-motion.js';
+import {SourceEngine} from '../web/source-engine.js';
+import {prepareGlyph} from '../web/motion-library.js';
+import {bindContours,warpContour} from '../web/source-contour-motion.js';
 const datasets=await Promise.all(['source-program.json','source-glyphs.json','font/ascii-outlines.json','font/alpha-centerlines.json'].map(async p=>JSON.parse(await fs.readFile('web/'+p))));
 const engine=new SourceEngine(...datasets),story=JSON.parse(await fs.readFile('web/night-one.json'));
 const numbers=d=>d.match(/[-+]?(?:\d*\.)?\d+(?:e[-+]?\d+)?/gi).map(Number);

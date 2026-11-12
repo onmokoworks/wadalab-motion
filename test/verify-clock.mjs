@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {clockMotion,foldStrokePath,formatClock,strokeVisibility,transitionProgress} from './web/clock-core.js';
+import {clockMotion,foldStrokePath,formatClock,strokeVisibility,transitionProgress} from '../web/clock-core.js';
 
 const morning=formatClock(new Date(2020,0,1,7,8,9)),evening=formatClock(new Date(2020,0,1,23,59,58));
 assert.deepEqual(morning,{ascii:'07:08:09',display:'07:08:09'});

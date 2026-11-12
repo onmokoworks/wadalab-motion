@@ -2,7 +2,7 @@ import fs from 'node:fs/promises';
 const noop=()=>{},ctx=new Proxy({}, {get:(o,k)=>o[k]??noop,set:(o,k,v)=>(o[k]=v,true)}),canvas={style:{},getContext:()=>ctx,addEventListener:noop,setAttribute:noop};
 let frame;const handlers={};
 Object.assign(globalThis,{innerWidth:1920,innerHeight:1080,devicePixelRatio:1,scrollY:0,location:{search:''},Path2D:class {moveTo(){}lineTo(){}ellipse(){}},document:{hidden:false,querySelector:()=>canvas,createElement:()=>canvas,body:{append:noop}},addEventListener:(k,f)=>handlers[k]=f,matchMedia:()=>({matches:false}),requestAnimationFrame:f=>frame=f,fetch:async u=>({ok:true,json:async()=>JSON.parse(await fs.readFile(u,'utf8'))})});
-const url=new URL('./web/motion-4.js',import.meta.url);
+const url=new URL('../web/motion-4.js',import.meta.url);
 let source=await fs.readFile(url,'utf8');source=source.replace(/from '(\.\/[^']+)'/g,(_,p)=>`from '${new URL(p,url)}'`).replaceAll('import.meta.url',JSON.stringify(url.href));
 source+='\nexport const state=()=>({active,time,width,scale,drift,rows,getGlyph});';
 const {state}=await import('data:text/javascript;base64,'+Buffer.from(source).toString('base64'));

@@ -37,7 +37,7 @@ node server.mjs
 
 `web/motion-library.js`が外部向けAPIです。`web/`に文字データ・計算処理とブラウザサンプル、`engine/`に和田研の原典と変換処理、`source-audit/`に検証資料を置いています。
 
-検証は`npm test`で実行します。`README-history.md`と`README-clwfk.md`は過去の実装の記録です。[実装記録](docs/implementation.md)にも過去の方式についての説明が含まれます。
+検証は`npm test`で実行します。個別の検証は`test/`にあり、リポジトリのいちばん上から`node test/verify-motion.mjs`のように実行します。`README-history.md`と`legacy/`は過去の実装の記録です。`legacy/`には、和田研フォントキットのCommon Lisp移植版（CLWFK）をJavaで直接動かしていた最初の方式を置いています。[実装記録](docs/implementation.md)にも過去の方式についての説明が含まれます。
 
 ## ライセンス
 

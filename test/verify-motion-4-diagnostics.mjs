@@ -2,7 +2,7 @@
 // identical story replay per phase, and invalidation. Records canvas commands only.
 import assert from 'node:assert/strict';
 import fs from 'node:fs/promises';
-import {summarize,createRun,attributeLongFrames} from './web/motion-4-diagnostics.js';
+import {summarize,createRun,attributeLongFrames} from '../web/motion-4-diagnostics.js';
 
 // Pure helpers.
 assert.deepEqual(summarize([]),{mean:null,p50:null,p95:null});
@@ -42,7 +42,7 @@ Object.assign(globalThis,{innerWidth:3840,innerHeight:2160,devicePixelRatio:1,sc
   addEventListener(type,f){(documentListeners[type]??=[]).push(f);}},
  addEventListener:noop,matchMedia:()=>({matches:false}),requestAnimationFrame:f=>queue.push(f),
  fetch:async url=>({ok:true,json:async()=>JSON.parse(await fs.readFile(url,'utf8'))})});
-await import('./web/motion-4.js');
+await import('../web/motion-4.js');
 const panel=document.body.children.find(node=>node.tagName==='section'),[message,start,copy,output]=panel.children;
 assert.match(message.textContent,/F11/);
 const tick=()=>{counts={clear:0,stroke:0,image:0};now+=16;const callbacks=queue;queue=[];for(const f of callbacks)f(now);return counts;};
