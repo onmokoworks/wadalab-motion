@@ -25,9 +25,9 @@ export function walkingPoint(point,{lead=0,step,time}){
 
 // Curve extrema define the lead; all paths share one monotone x field.
 export function leadingWeights(strokes,{originX}={}){
- const points=strokes.flatMap(stroke=>stroke.points),left=Math.min(...points.map(p=>p.x)),right=Math.max(...points.map(p=>p.x)),apices=[];
+ const points=strokes.reduce((all,stroke)=>all.concat(stroke.points),[]),left=Math.min(...points.map(p=>p.x)),right=Math.max(...points.map(p=>p.x)),apices=[];
  for(const stroke of strokes){
-  const source=stroke.points,closed=Math.hypot(source[0].x-source.at(-1).x,source[0].y-source.at(-1).y)<1e-5,p=closed?source.slice(0,-1):source;
+  const source=stroke.points,closed=Math.hypot(source[0].x-source[source.length-1].x,source[0].y-source[source.length-1].y)<1e-5,p=closed?source.slice(0,-1):source;
   // Sampled arcs can have a flat pair at their apex (for example r).
   for(let i=1;i<p.length-2;i++){
    let end=i;while(end+1<p.length&&Math.abs(p[end+1].y-p[i].y)<.01)end++;

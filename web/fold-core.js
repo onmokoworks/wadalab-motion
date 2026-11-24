@@ -75,10 +75,10 @@ export function buildRig(alpha,w,h,{jointLength=14,grid=40}={}){
   const comp=components[ci],root=ci?nearest(comp,rx,ry):mainRoot,parents=new Map([[root,-1]]),children=new Map(),queue=[root];
   for(let k=0;k<queue.length;k++){const i=queue[k];for(const j of neighbors(i))if(!parents.has(j)){parents.set(j,i);queue.push(j);if(!children.has(i))children.set(i,[]);children.get(i).push(j);}}
   const componentBone=ci?add(0,mainRoot,root,false):0;
-  const pending=(children.get(root)??[]).map(i=>({pixel:i,from:root,parent:componentBone,distance:0}));
+  const pending=(children.get(root)||[]).map(i=>({pixel:i,from:root,parent:componentBone,distance:0}));
   if(!pending.length){bones[componentBone].skin=true;}
   while(pending.length){let {pixel,from,parent,distance}=pending.pop();let previous=parents.get(pixel);distance+=Math.hypot(pixel%w-previous%w,Math.floor(pixel/w)-Math.floor(previous/w));
-   const next=children.get(pixel)??[];
+   const next=children.get(pixel)||[];
    if(distance>=jointLength||next.length!==1){parent=add(parent,from,pixel);from=pixel;distance=0;}
    for(const child of next)pending.push({pixel:child,from,parent,distance});
   }
@@ -95,7 +95,7 @@ export function buildRig(alpha,w,h,{jointLength=14,grid=40}={}){
  const distance=(x,y,b)=>{const dx=b.bx-b.ax,dy=b.by-b.ay,t=clamp(((x-b.ax)*dx+(y-b.ay)*dy)/(dx*dx+dy*dy||1));return Math.hypot(x-b.ax-dx*t,y-b.ay-dy*t);};
  for(let y=0;y<=grid;y++)for(let x=0;x<=grid;x++){
   const px=x*w/grid,py=y*h/grid,best=[];
-  for(const id of candidates){const d=distance(px,py,bones[id]);if(best.length<3||d<best.at(-1).d){best.push({id,d});best.sort((a,b)=>a.d-b.d);if(best.length>3)best.pop();}}
+  for(const id of candidates){const d=distance(px,py,bones[id]);if(best.length<3||d<best[best.length-1].d){best.push({id,d});best.sort((a,b)=>a.d-b.d);if(best.length>3)best.pop();}}
   if(!best.length)best.push({id:0,d:0});const weights=best.map(v=>1/(v.d+.7)**4),sum=weights.reduce((a,b)=>a+b,0);
   vertices.push({x:px,y:py,u:x/grid,v:y/grid,bones:best.map(v=>v.id),weights:weights.map(v=>v/sum)});
  }
