@@ -25,28 +25,40 @@ if(window.PointerEvent){
 }
 function start(data){
  const glyphs=new Map(data.glyphs.map(entry=>[entry[0],{character:entry[0],paths:entry[1],width:entry[2],advance:entry[3]}]));
- const initial=formatClock(new Date()).ascii,slots=Array.from(initial).map(character=>({character,current:glyphs.get(character),previous:null,started:performance.now()/1000}));
+ const initial=formatClock(new Date()).ascii,slots=Array.from(initial).map(character=>({character,current:glyphs.get(character),previous:null,started:performance.now()/1000,settled:false,holders:[]}));
  const rowSizes=[.45,1.1,.65,2,.3,1.5,.8,.4,1.8,.6,1,.35,1.3],rows=rowSizes.map((size,i)=>({size,phase:i*.19,speed:Math.max(1,1/size)}));
+ const round=value=>Math.round(value*10)/10;
  let current=initial,width,scale;
- function resize(){width=innerWidth;scale=Math.min(width/1900,innerHeight/3100);const total=rows.reduce((sum,row)=>sum+400*scale*row.size+4,0),height=Math.max(innerHeight,total+70);svg.style.height=height+'px';svg.setAttribute('viewBox','0 0 '+width+' '+height);while(svg.firstChild)svg.removeChild(svg.firstChild);let y=(height-total)/2;
-  for(const row of rows){row.scale=scale*row.size;row.y=y;y+=400*row.scale+4;row.period=1780*row.scale;row.copies=Array.from({length:Math.ceil(width/row.period)+3},()=>Array.from({length:8},()=>{const g=create('g');svg.appendChild(g);return g;}));}
+ // Paths are written in glyph units and only while a digit is changing. The
+ // flow itself moves one group transform per row, so a resting frame costs
+ // one attribute per row instead of one path string per stroke.
+ function resize(){width=innerWidth;scale=Math.min(width/1900,innerHeight/3100);const total=rows.reduce((sum,row)=>sum+400*scale*row.size+4,0),height=Math.max(innerHeight,total+70);svg.style.height=height+'px';svg.setAttribute('viewBox','0 0 '+width+' '+height);svg.setAttribute('stroke-width',Math.max(1.3,Math.min(2.8,width/500)));while(svg.firstChild)svg.removeChild(svg.firstChild);let y=(height-total)/2;
+  slots.forEach(slot=>{slot.holders=[];slot.settled=false;});
+  for(const row of rows){row.scale=scale*row.size;row.y=y;y+=400*row.scale+4;row.period=1780*row.scale;row.group=create('g');svg.appendChild(row.group);
+   for(let copy=0,count=Math.ceil(width/row.period)+3;copy<count;copy++){const set=create('g');set.setAttribute('transform','translate('+(copy-1)*1780+',0)');row.group.appendChild(set);
+    slots.forEach((slot,i)=>{const holder=create('g');holder.setAttribute('transform','translate('+i*200+',0)');holder.appendChild(create('g'));holder.appendChild(create('g'));set.appendChild(holder);slot.holders.push(holder);});
+   }
+  }
  }
  resize();addEventListener('resize',resize);
  function draw(now){
   const dt=Math.min(.05,(now-lastFrame)/1000);lastFrame=now;
   if(!drag){const m=coast(velocity,dt);manualOffset+=m.distance;velocity=m.velocity;distance+=dt*width*.025;}
-  const time=formatClock(new Date()).ascii;if(time!==current){current=time;Array.from(time).forEach((ch,i)=>{const slot=slots[i];if(slot.character===ch)return;slot.previous=slot.current;slot.current=glyphs.get(ch);slot.character=ch;slot.started=now/1000;});svg.setAttribute('aria-label',current);}
-  const frames=slots.map(slot=>{const progress=transitionProgress(now/1000,slot.started);const layers=clockLayers(slot.current,slot.previous,progress).map(layer=>layer.visible?clockGlyphFrame(layer.glyph,layer.amount):null);if(progress>=1)slot.previous=null;return layers;});
-  for(const row of rows){const offset=((distance*row.speed+manualOffset+row.phase*row.period)%row.period+row.period)%row.period;
-   row.copies.forEach((holders,copy)=>holders.forEach((holder,i)=>{
+  const time=formatClock(new Date()).ascii;if(time!==current){current=time;Array.from(time).forEach((ch,i)=>{const slot=slots[i];if(slot.character===ch)return;slot.previous=slot.current;slot.current=glyphs.get(ch);slot.character=ch;slot.started=now/1000;slot.settled=false;});svg.setAttribute('aria-label',current);}
+  slots.forEach(slot=>{
+   if(slot.settled)return;
+   const progress=transitionProgress(now/1000,slot.started);
+   const layers=clockLayers(slot.current,slot.previous,progress).map(layer=>{if(!layer.visible)return null;const glyphFrame=clockGlyphFrame(layer.glyph,layer.amount);return {opacity:glyphFrame.opacity,paths:glyphFrame.paths.map(path=>path.length>1?path.map((p,j)=>(j?'L':'M')+round(p.x+glyphFrame.offset)+','+round(p.y)).join(' '):'')};});
+   slot.holders.forEach(holder=>layers.forEach((layer,l)=>{
     // childNodes, not children: older engines lack children on SVG elements.
-    while(holder.childNodes.length<2)holder.appendChild(create('g'));
-    frames[i].forEach((glyphFrame,l)=>{const group=holder.childNodes[l];group.setAttribute('visibility',glyphFrame?'visible':'hidden');if(!glyphFrame)return;group.setAttribute('opacity',glyphFrame.opacity);
-     while(group.childNodes.length<glyphFrame.paths.length){const node=create('path');node.setAttribute('stroke-width',Math.max(1.3,Math.min(2.8,width/500)));group.appendChild(node);}
-     for(let s=0;s<group.childNodes.length;s++){const path=glyphFrame.paths[s];group.childNodes[s].setAttribute('d',path&&path.length>1?path.map((p,j)=>(j?'L':'M')+((p.x+glyphFrame.offset+i*200)*row.scale+offset+(copy-1)*row.period)+','+(p.y*row.scale+row.y)).join(' '):'');}
-    });
+    const group=holder.childNodes[l];group.setAttribute('visibility',layer?'visible':'hidden');if(!layer)return;group.setAttribute('opacity',layer.opacity);
+    while(group.childNodes.length<layer.paths.length)group.appendChild(create('path'));
+    for(let s=0;s<group.childNodes.length;s++)group.childNodes[s].setAttribute('d',layer.paths[s]||'');
    }));
-  }frame(draw);
+   if(progress>=1){slot.previous=null;slot.settled=true;}
+  });
+  for(const row of rows){const offset=((distance*row.speed+manualOffset+row.phase*row.period)%row.period+row.period)%row.period;row.group.setAttribute('transform','translate('+offset+','+row.y+') scale('+row.scale+')');}
+  frame(draw);
  }svg.setAttribute('aria-label',current);frame(draw);
 }
 fetch('/font/clock-skeletons.json').then(response=>{if(!response.ok)throw Error(response.status);return response.json();}).then(start).catch(e=>{document.querySelector('#error').textContent='読み込みに失敗しました：'+e.message;});
