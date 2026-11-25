@@ -27,7 +27,8 @@ function start(data){
  const initial=formatClock(new Date()).ascii,slots=Array.from(initial).map(character=>({character,current:glyphs.get(character),previous:null,started:performance.now()/1000,settled:false,layers:[]}));
  const rowSizes=[.45,1.1,.65,2,.3,1.5,.8,.4,1.8,.6,1,.35,1.3],rows=rowSizes.map((size,i)=>({size,phase:i*.19,speed:Math.max(1,1/size)}));
  const context=stage.getContext('2d'),color=getComputedStyle(stage).color,space=document.querySelector('#space');
- let current=initial,width,view,scale,ratio,lineWidth,resting=null,moving=[];
+ let current=initial,width=0,view=0,scale,ratio,lineWidth,resting=null,moving=[];
+ const spare=160;
  // One clock string is kept as polylines in glyph units and rebuilt only while
  // a digit is changing. Each frame strokes it once per visible repeat; resting
  // digits share a single path so a repeat is one stroke call.
@@ -42,14 +43,19 @@ function start(data){
  function resize(){
   // Narrow screens size the rows by width. Wide ones use twice the size their
   // height alone would give: larger digits mean fewer repeats to stroke.
+  // Mobile address bars slide in and out while the page scrolls and change the
+  // height each time. Rebuilding the canvas then blanks it mid-scroll, so small
+  // height changes are absorbed by a canvas that is a little taller than the screen.
+  if(innerWidth===width&&Math.abs(innerHeight-view)<spare)return false;
   width=innerWidth;view=innerHeight;scale=Math.min(width/1900,2*view/3100);const total=rows.reduce((sum,row)=>sum+400*scale*row.size+4,0),height=Math.max(view,total+70);
   // Above two device pixels per CSS pixel the hairlines gain little and the fill cost grows fast.
   ratio=Math.min(window.devicePixelRatio||1,2);lineWidth=Math.max(1.3,Math.min(2.8,width/500));
   // The canvas covers only the screen; the spacer gives the page its scroll height.
-  space.style.height=height+'px';stage.style.height=view+'px';stage.width=Math.round(width*ratio);stage.height=Math.round(view*ratio);
+  space.style.height=height+'px';stage.style.height=view+spare+'px';stage.width=Math.round(width*ratio);stage.height=Math.round((view+spare)*ratio);
   let y=(height-total)/2;for(const row of rows){row.scale=scale*row.size;row.y=y;y+=400*row.scale+4;row.period=1780*row.scale;row.count=Math.ceil(width/row.period)+3;}
+  return true;
  }
- resize();addEventListener('resize',()=>{resize();if(resting)paint();});
+ resize();addEventListener('resize',()=>{if(resize()&&resting)paint();});
  function draw(){
   // One clock for everything: frame timestamps and performance.now() can disagree.
   const now=performance.now();
@@ -77,7 +83,7 @@ function start(data){
   context.setTransform(1,0,0,1,0,0);context.clearRect(0,0,stage.width,stage.height);
   context.strokeStyle=color;context.lineCap='round';context.lineJoin='round';
   for(const row of rows){
-   const y=row.y-top,tall=400*row.scale;if(y>view+tall*.25||y+tall*1.25<0)continue;
+   const y=row.y-top,tall=400*row.scale;if(y>view+spare+tall*.25||y+tall*1.25<0)continue;
    const offset=((distance*row.speed+manualOffset+row.phase*row.period)%row.period+row.period)%row.period,zoom=row.scale*ratio;
    // Dividing by the row scale keeps the stroke the same width in every row.
    context.lineWidth=lineWidth/row.scale;
